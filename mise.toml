@@ -1,0 +1,40 @@
+[tools]
+go = "1.27"
+atlas = "latest"
+"go:github.com/onsi/ginkgo/v2/ginkgo" = "2.33.0"
+
+[tasks."db:diff"]
+description = "Plan a migration from the bun models. Pass a name: mise run db:diff add_vehicles"
+run = "atlas migrate diff --env local"
+
+[tasks."db:lint"]
+description = "Check the pending migrations for destructive or unsafe changes"
+run = "atlas migrate lint --env local --latest 1"
+
+[tasks."db:hash"]
+description = "Rewrite atlas.sum after editing a migration by hand"
+run = "atlas migrate hash --env local"
+
+[tasks."db:up"]
+description = "Apply migrations, then reconcile the sync triggers"
+run = "go run ./apps/migrate"
+
+[tasks.test]
+description = "Run every spec; the medium suites need Docker"
+run = "ginkgo -p -r"
+
+[tasks."test:unit"]
+description = "Run the specs that need no database"
+run = "ginkgo -p -r --label-filter=unit"
+
+[tasks.dev]
+description = "Start postgres and the requester with hot reload"
+run = "docker compose up --build"
+
+[tasks."dev:down"]
+description = "Stop the dev stack and drop the postgres volume"
+run = "docker compose down -v"
+
+[tasks."dev:clean"]
+description = "Clean up the dev stack and remove any leftover volumes"
+run = "docker compose down -v --rmi all"

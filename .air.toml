@@ -1,0 +1,19 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/requester ./apps/requester"
+entrypoint = ["./tmp/requester"]
+delay = 200
+exclude_dir = ["tmp", "internal/db/migrations"]
+exclude_regex = ["_test\\.go"]
+include_ext = ["go", "sql"]
+stop_on_error = false
+kill_delay = "5s"
+send_interrupt = true
+
+[log]
+main_only = false
+
+[misc]
+clean_on_exit = true
