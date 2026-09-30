@@ -14,3 +14,6 @@ func Port() string {
 }
 
 const MinimumSupportedVersion = "3.0.0"
+
+// AllowedOrigins are the webview origins of the Capacitor app on iOS and Android.
+var AllowedOrigins = []string{"capacitor://localhost", "https://localhost"}

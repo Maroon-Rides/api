@@ -41,6 +41,42 @@ var _ = Describe("WebsocketController", Label("unit"), func() {
 	})
 })
 
+var _ = Describe("WebsocketController origins", Label("unit"), func() {
+	var url string
+
+	BeforeEach(func() {
+		server := fuego.NewServer()
+		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), nil)
+		controllers.NewWebsocketController(svc).Register(fuego.Group(server, "/api"))
+		httpServer := httptest.NewServer(server.Mux)
+		DeferCleanup(httpServer.Close)
+		url = "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/api/ws"
+	})
+
+	dial := func(origin string) (*http.Response, error) {
+		conn, res, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {origin}})
+		if conn != nil {
+			DeferCleanup(conn.Close)
+		}
+		return res, err
+	}
+
+	DescribeTable("accepts the app's webview origins",
+		func(origin string) {
+			_, err := dial(origin)
+			Expect(err).NotTo(HaveOccurred())
+		},
+		Entry("iOS", "capacitor://localhost"),
+		Entry("Android", "https://localhost"),
+	)
+
+	It("refuses any other origin", func() {
+		res, err := dial("https://example.com")
+		Expect(err).To(MatchError(websocket.ErrBadHandshake))
+		Expect(res.StatusCode).To(Equal(http.StatusForbidden))
+	})
+})
+
 var _ = Describe("websocket client", Label("unit"), func() {
 	It("is dropped instead of blocking once its outbox is full", func() {
 		accepted := make(chan *websocket.Conn, 1)

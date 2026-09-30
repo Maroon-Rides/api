@@ -5,18 +5,24 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/MaroonRides/api/apps/gateway/config"
 	"github.com/MaroonRides/api/apps/gateway/controllers"
 
 	"github.com/go-fuego/fuego"
+	"github.com/rs/cors"
 	"go.uber.org/fx"
 )
 
 type Controllers struct {
 	fx.In
 	All []controllers.Controller `group:"controllers"`
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return cors.New(cors.Options{AllowedOrigins: config.AllowedOrigins}).Handler(next)
 }
 
 func registerAPI(server *fuego.Server, all []controllers.Controller) {
@@ -35,6 +41,7 @@ func NewServer(lc fx.Lifecycle, controllers Controllers) *fuego.Server {
 	addr := ":" + config.Port()
 
 	server := fuego.NewServer(
+		fuego.WithGlobalMiddlewares(corsMiddleware),
 		fuego.WithLoggingMiddleware(fuego.LoggingConfig{
 			DisableRequest:  true,
 			DisableResponse: true,
