@@ -34,9 +34,9 @@ var _ = Describe("SyncController", Label("unit"), func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest), res.Body.String())
 			Expect(res.Header().Get("Content-Type")).NotTo(ContainSubstring(controllers.JSONLinesContentType))
 		},
-		Entry("an unknown type", `{"types":["TripsV1"]}`),
-		Entry("no types", `{"types":[]}`),
-		Entry("a bad ack", `{"types":["RoutesV1"],"acks":["RouteV1|nope"]}`),
-		Entry("a malformed body", `{"types":`),
+		Entry("an unknown type", `{"protocol":1,"types":["TripsV1"]}`),
+		Entry("no types", `{"protocol":1,"types":[]}`),
+		Entry("a bad ack", `{"protocol":1,"types":["RoutesV1"],"acks":["RouteV1|nope"]}`),
+		Entry("a malformed body", `{"protocol":1,"types":`),
 	)
 })

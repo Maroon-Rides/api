@@ -22,8 +22,8 @@ var SyncPayloads = map[SyncEntityType]any{
 	SyncEntityTypes.AlertDeleteV1:          SyncAlertDeleteV1{},
 	SyncEntityTypes.AlertDirectionV1:       SyncAlertDirectionV1{},
 	SyncEntityTypes.AlertDirectionDeleteV1: SyncAlertDirectionDeleteV1{},
-	SyncEntityTypes.StopScheduleV1:         SyncStopScheduleV1{},
-	SyncEntityTypes.StopScheduleDeleteV1:   SyncStopScheduleDeleteV1{},
+	SyncEntityTypes.TimetableV1:            SyncTimetableV1{},
+	SyncEntityTypes.TimetableDeleteV1:      SyncTimetableDeleteV1{},
 	SyncEntityTypes.SyncResetV1:            SyncResetV1{},
 	SyncEntityTypes.SyncCompleteV1:         SyncCompleteV1{},
 }
@@ -194,28 +194,28 @@ func NewSyncAlertDirectionDeleteV1(a model.AlertDirectionAudit) SyncAlertDirecti
 	return SyncAlertDirectionDeleteV1{AlertDirectionID: a.AlertDirectionID}
 }
 
-type SyncStopScheduleV1 struct {
-	ID          uuid.UUID `json:"id"`
-	StopID      uuid.UUID `json:"stopId"`
-	DirectionID uuid.UUID `json:"directionId"`
-	ScheduledAt time.Time `json:"scheduledAt"`
-	ServiceDate string    `json:"serviceDate" format:"date"`
+type SyncTimetableV1 struct {
+	ID          uuid.UUID   `json:"id"`
+	StopID      uuid.UUID   `json:"stopId"`
+	DirectionID uuid.UUID   `json:"directionId"`
+	ServiceDate string      `json:"serviceDate" format:"date"`
+	Departures  []time.Time `json:"departures"`
 }
 
-func NewSyncStopScheduleV1(s model.StopSchedule) SyncStopScheduleV1 {
-	return SyncStopScheduleV1{
-		ID:          s.ID,
-		StopID:      s.StopID,
-		DirectionID: s.DirectionID,
-		ScheduledAt: s.ScheduledAt,
-		ServiceDate: s.ServiceDate.Format(serviceDateLayout),
+func NewSyncTimetableV1(t model.Timetable) SyncTimetableV1 {
+	return SyncTimetableV1{
+		ID:          t.ID,
+		StopID:      t.StopID,
+		DirectionID: t.DirectionID,
+		ServiceDate: t.ServiceDate.Format(serviceDateLayout),
+		Departures:  t.Departures,
 	}
 }
 
-type SyncStopScheduleDeleteV1 struct {
-	StopScheduleID uuid.UUID `json:"stopScheduleId"`
+type SyncTimetableDeleteV1 struct {
+	TimetableID uuid.UUID `json:"timetableId"`
 }
 
-func NewSyncStopScheduleDeleteV1(a model.StopScheduleAudit) SyncStopScheduleDeleteV1 {
-	return SyncStopScheduleDeleteV1{StopScheduleID: a.StopScheduleID}
+func NewSyncTimetableDeleteV1(a model.TimetableAudit) SyncTimetableDeleteV1 {
+	return SyncTimetableDeleteV1{TimetableID: a.TimetableID}
 }

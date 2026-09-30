@@ -7,15 +7,9 @@ import (
 	"sync"
 	"time"
 
-	_ "time/tzdata"
-
 	"github.com/go-co-op/gocron/v2"
 	"go.uber.org/fx"
 )
-
-// ServiceTimeZone is where the buses run. The alpine image ships no zoneinfo,
-// hence the embedded tzdata.
-const ServiceTimeZone = "America/Chicago"
 
 type Job struct {
 	Task     func(context.Context) error
@@ -40,14 +34,6 @@ func jobOptions() []gocron.JobOption {
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 		gocron.WithStartAt(gocron.WithStartImmediately()),
 	}
-}
-
-func NewServiceLocation() (*time.Location, error) {
-	location, err := time.LoadLocation(ServiceTimeZone)
-	if err != nil {
-		return nil, fmt.Errorf("loading %s: %w", ServiceTimeZone, err)
-	}
-	return location, nil
 }
 
 func NewScheduler(location *time.Location) (*Scheduler, error) {

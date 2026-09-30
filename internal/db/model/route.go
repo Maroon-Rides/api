@@ -16,12 +16,14 @@ type Route struct {
 	ID       uuid.UUID `bun:"id,type:uuid,pk,default:uuidv7()"`
 	SourceID string    `bun:"sourceId,notnull,unique" sync:"nosync"`
 
-	ShortName     string     `bun:"shortName,notnull"`
+	ShortName     string     `bun:"shortName,notnull,unique"`
 	LongName      string     `bun:"longName,notnull"`
 	LightColor    string     `bun:"lightColor,notnull"`
 	DarkColor     string     `bun:"darkColor,notnull"`
 	Active        bool       `bun:"active,notnull,default:true"`
 	DeactivatedAt *time.Time `bun:"deactivatedAt" sync:"nosync"`
+
+	LiveDataAvailable bool `bun:"liveDataAvailable,notnull,default:false" sync:"nosync"`
 }
 
 type RouteAudit struct {

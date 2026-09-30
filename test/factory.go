@@ -19,7 +19,7 @@ type Network struct {
 	DirectionStop  model.DirectionStop
 	Alert          model.Alert
 	AlertDirection model.AlertDirection
-	StopSchedule   model.StopSchedule
+	Timetable      model.Timetable
 }
 
 // CreateNetwork fills every synced table. The name keeps unique columns apart across calls.
@@ -70,15 +70,19 @@ func CreateNetwork(bundb *bun.DB, name string) Network {
 		IsTimepoint: true,
 	}
 	n.AlertDirection = model.AlertDirection{AlertID: n.Alert.ID, DirectionID: n.Direction.ID}
-	n.StopSchedule = model.StopSchedule{
+	n.Timetable = model.Timetable{
 		StopID:      n.Stop.ID,
 		DirectionID: n.Direction.ID,
-		ScheduledAt: time.Date(2026, 9, 27, 14, 30, 0, 0, time.UTC),
+		RouteID:     n.Route.ID,
 		ServiceDate: time.Date(2026, 9, 27, 0, 0, 0, 0, time.UTC),
+		Departures: []time.Time{
+			time.Date(2026, 9, 27, 14, 30, 0, 0, time.UTC),
+			time.Date(2026, 9, 27, 14, 45, 0, 0, time.UTC),
+		},
 	}
 	Insert(bundb, &n.DirectionStop)
 	Insert(bundb, &n.AlertDirection)
-	Insert(bundb, &n.StopSchedule)
+	Insert(bundb, &n.Timetable)
 
 	return n
 }

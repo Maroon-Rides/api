@@ -12,4 +12,5 @@ type Controller interface {
 var Module = fx.Provide(
 	fx.Annotate(NewWebsocketController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
 	fx.Annotate(NewSyncController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
+	fx.Annotate(NewVersionController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
 )

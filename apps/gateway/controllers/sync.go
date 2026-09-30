@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-fuego/fuego"
+	"github.com/klauspost/compress/gzhttp"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
 	"github.com/MaroonRides/api/apps/gateway/services"
@@ -31,8 +34,13 @@ func (c *SyncController) Register(api *fuego.Server) {
 			Type:         dtos.SyncStreamLine{},
 			ContentTypes: []string{JSONLinesContentType},
 		}),
+		fuego.OptionMiddleware(gzipped),
 	)
 	registerSyncStreamLine(api.OpenAPI)
+}
+
+func gzipped(next http.Handler) http.Handler {
+	return gzhttp.GzipHandler(next)
 }
 
 func (c *SyncController) stream(fc fuego.ContextWithBody[dtos.SyncRequest]) (any, error) {
@@ -49,33 +57,19 @@ func (c *SyncController) stream(fc fuego.ContextWithBody[dtos.SyncRequest]) (any
 		return nil, err
 	}
 
-	w := newLineWriter(fc.Response())
-	err = c.svc.Stream(fc.Context(), plan, w.send)
-	if err != nil && !w.started {
+	// The whole response is read before any of it is written, so a slow client never holds a database connection.
+	var body bytes.Buffer
+	enc := json.NewEncoder(&body)
+	if err := c.svc.Stream(fc.Context(), plan, func(line dtos.SyncStreamLine) error { return enc.Encode(line) }); err != nil {
 		return nil, err
 	}
-	if err != nil {
+
+	w := fc.Response()
+	w.Header().Set("Content-Type", JSONLinesContentType)
+	w.Header().Set("Content-Length", strconv.Itoa(body.Len()))
+	w.WriteHeader(http.StatusOK)
+	if _, err := body.WriteTo(w); err != nil {
 		slog.Warn("sync stream ended early", "error", err)
 	}
 	return nil, nil
-}
-
-// lineWriter holds the status line back until the first line, so an error before any data is still a proper error response.
-type lineWriter struct {
-	w       http.ResponseWriter
-	enc     *json.Encoder
-	started bool
-}
-
-func newLineWriter(w http.ResponseWriter) *lineWriter {
-	return &lineWriter{w: w, enc: json.NewEncoder(w)}
-}
-
-func (l *lineWriter) send(line dtos.SyncStreamLine) error {
-	if !l.started {
-		l.w.Header().Set("Content-Type", JSONLinesContentType)
-		l.w.WriteHeader(http.StatusOK)
-		l.started = true
-	}
-	return l.enc.Encode(line)
 }

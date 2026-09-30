@@ -13,7 +13,7 @@ type upsertSpec struct {
 	set      string
 }
 
-func upsertAll[T any](ctx context.Context, db *bun.DB, rows []T, key func(T) string, spec upsertSpec) (map[string]T, error) {
+func upsertAll[T any](ctx context.Context, db bun.IDB, rows []T, key func(T) string, spec upsertSpec) (map[string]T, error) {
 	rows = lo.UniqBy(rows, key)
 
 	if len(rows) == 0 {

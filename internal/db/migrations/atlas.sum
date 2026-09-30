@@ -1,4 +1,10 @@
-h1:OUpDYBpVQYHAK1jYWpgGlsl9bG16IeWml7+hkdfgBlQ=
+h1:XwSCvhD8yzCmlDT9gdMMN1BIDptFettod0ugcIWJgo8=
 20260927192657_initial_tables.sql h1:MvX5nd5hspGOKgoPp5crmIjsXj++Bik6/7p5g2deFqo=
 20260927202630_passenger_count.sql h1:wrAWgyra+WZe0q0DxXT8c8K87Jgsbgtp3SnrFX+/hcQ=
 20260927222835_stop_schedule.sql h1:9CXXfeiycy5z/XG2sjzhHGuhBfvADJy2oovAiWuE1aQ=
+20260929212848_stable_route_direction_keys.sql h1:Lu1XdfDMvpo3kKWxgTwwd34TqTVtmuH04GthWUt/4RU=
+20260929215313_live_data_subscriptions.sql h1:7suMMqCrPUbMhT16tuoE6tCNBheO8Wm3hmLSnGw9s00=
+20260930051005_live_data_available.sql h1:+r1SjhDHgNc7FEeMZxTYTKN1sZYba/P9nkIsa1LSRsY=
+20260930053028_timetables.sql h1:KRo1t1t/VixFxAYowKjM+GaavrwdJZGEtr/nJnqwXn0=
+20260930153839_scoped_timetables.sql h1:igeQciMtt4LJAy8HMPbyexU3k/SUxZL6QqBaGEbpuOk=
+20260930161916_sync_metadata.sql h1:GzPhsuzWN8rHYPcHu48kW+4dUnqsnA9VWzajdPM/J88=

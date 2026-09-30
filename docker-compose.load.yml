@@ -1,0 +1,26 @@
+# Layered over docker-compose.yml by `mise run load`. k6 runs on the compose network so its
+# connections skip Docker Desktop's host port proxy, which cannot hold thousands of sockets.
+services:
+  gateway:
+    cap_add:
+      - NET_ADMIN
+    environment:
+      GATEWAY_EGRESS_RATE: 200mbit
+    command:
+      - sh
+      - -c
+      - tc qdisc replace dev eth0 root tbf rate "$$GATEWAY_EGRESS_RATE" burst 256kb latency 50ms && exec air -c .air.gateway.toml
+
+  k6:
+    image: grafana/k6:latest
+    profiles: ["load"]
+    environment:
+      BASE_URL: http://gateway:3000
+      SYNC_TIMETABLES: ${SYNC_TIMETABLES:-true}
+    volumes:
+      - ./k6:/scripts:ro
+    ulimits:
+      nofile: 65536
+    command: ["run", "/scripts/load-test.ts"]
+    depends_on:
+      - gateway

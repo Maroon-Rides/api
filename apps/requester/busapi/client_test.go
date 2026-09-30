@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type capturedRequest struct {
@@ -18,9 +20,7 @@ type capturedRequest struct {
 	body   string
 }
 
-func newTestClient(t *testing.T, response string) (*Client, *capturedRequest) {
-	t.Helper()
-
+func newTestClient(response string) (*Client, *capturedRequest) {
 	var captured capturedRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -34,206 +34,149 @@ func newTestClient(t *testing.T, response string) (*Client, *capturedRequest) {
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, response)
 	}))
-	t.Cleanup(server.Close)
+	DeferCleanup(server.Close)
 
 	auth := StaticAuth{"Cookie": "session=abc"}
 	return NewClient(ClientConfig{Auth: auth, BaseURL: server.URL, HTTPClient: server.Client()}), &captured
 }
 
-func TestAuthHeadersAreSent(t *testing.T) {
-	client, captured := newTestClient(t, `{"routes":[],"serviceInterruptions":[]}`)
+var _ = Describe("Client", Label("unit"), func() {
+	ctx := context.Background()
 
-	if _, err := client.GetBaseData(context.Background()); err != nil {
-		t.Fatalf("GetBaseData: %v", err)
-	}
+	It("sends auth headers", func() {
+		client, captured := newTestClient(`{"routes":[],"serviceInterruptions":[]}`)
 
-	if got := captured.header.Get("Cookie"); got != "session=abc" {
-		t.Errorf("Cookie header = %q, want %q", got, "session=abc")
-	}
-	if captured.method != http.MethodPost {
-		t.Errorf("method = %q, want POST", captured.method)
-	}
-	if captured.path != pathBaseData {
-		t.Errorf("path = %q, want %q", captured.path, pathBaseData)
-	}
-}
+		_, err := client.GetBaseData(ctx)
+		Expect(err).NotTo(HaveOccurred())
 
-func TestGetPatternPathsEncodesRouteKeys(t *testing.T) {
-	client, captured := newTestClient(t, `[]`)
+		Expect(captured.header.Get("Cookie")).To(Equal("session=abc"))
+		Expect(captured.method).To(Equal(http.MethodPost))
+		Expect(captured.path).To(Equal(pathBaseData))
+	})
 
-	if _, err := client.GetPatternPaths(context.Background(), []string{"abc", "d/e"}); err != nil {
-		t.Fatalf("GetPatternPaths: %v", err)
-	}
+	It("form encodes route keys for pattern paths", func() {
+		client, captured := newTestClient(`[]`)
 
-	want := "routeKeys%5B%5D=abc&routeKeys%5B%5D=d%2Fe"
-	if captured.body != want {
-		t.Errorf("body = %q, want %q", captured.body, want)
-	}
-	if got := captured.header.Get("Content-Type"); got != contentTypeForm {
-		t.Errorf("Content-Type = %q, want %q", got, contentTypeForm)
-	}
-}
+		_, err := client.GetPatternPaths(ctx, []string{"abc", "d/e"})
+		Expect(err).NotTo(HaveOccurred())
 
-func TestGetNextDepartureTimesIndexesEachDirection(t *testing.T) {
-	client, captured := newTestClient(t, `{"amenities":[],"routeDirectionTimes":[],"stopCode":"100"}`)
+		Expect(captured.body).To(Equal("routeKeys%5B%5D=abc&routeKeys%5B%5D=d%2Fe"))
+		Expect(captured.header.Get("Content-Type")).To(Equal(contentTypeForm))
+	})
 
-	routeDirectionPairs := []RouteDirectionPair{
-		{RouteKey: "route1", DirectionKey: "dir1"},
-		{RouteKey: "route1", DirectionKey: "dir2"},
-	}
+	It("indexes each direction for next departure times", func() {
+		client, captured := newTestClient(`{"amenities":[],"routeDirectionTimes":[],"stopCode":"100"}`)
 
-	_, err := client.GetNextDepartureTimes(context.Background(), routeDirectionPairs, "100")
-	if err != nil {
-		t.Fatalf("GetNextDepartureTimes: %v", err)
-	}
+		routeDirectionPairs := []RouteDirectionPair{
+			{RouteKey: "route1", DirectionKey: "dir1"},
+			{RouteKey: "route1", DirectionKey: "dir2"},
+		}
 
-	want := "routeDirectionKeys%5B0%5D%5BrouteKey%5D=route1" +
-		"&routeDirectionKeys%5B0%5D%5BdirectionKey%5D=dir1&stopCode=100" +
-		"&routeDirectionKeys%5B1%5D%5BrouteKey%5D=route1" +
-		"&routeDirectionKeys%5B1%5D%5BdirectionKey%5D=dir2&stopCode=100"
-	if captured.body != want {
-		t.Errorf("body = %q, want %q", captured.body, want)
-	}
-}
+		_, err := client.GetNextDepartureTimes(ctx, routeDirectionPairs, "100")
+		Expect(err).NotTo(HaveOccurred())
 
-func TestGetNearbyRoutesFillsDefaults(t *testing.T) {
-	client, captured := newTestClient(t, `{"routeResults":[]}`)
+		Expect(captured.body).To(Equal("routeDirectionKeys%5B0%5D%5BrouteKey%5D=route1" +
+			"&routeDirectionKeys%5B0%5D%5BdirectionKey%5D=dir1&stopCode=100" +
+			"&routeDirectionKeys%5B1%5D%5BrouteKey%5D=route1" +
+			"&routeDirectionKeys%5B1%5D%5BdirectionKey%5D=dir2&stopCode=100"))
+	})
 
-	if _, err := client.GetNearbyRoutes(context.Background(), NearbyRoutesQuery{}); err != nil {
-		t.Fatalf("GetNearbyRoutes: %v", err)
-	}
+	It("fills defaults for nearby routes", func() {
+		client, captured := newTestClient(`{"routeResults":[]}`)
 
-	var payload nearbyRoutesPayload
-	if err := json.Unmarshal([]byte(captured.body), &payload); err != nil {
-		t.Fatalf("unmarshal body: %v", err)
-	}
+		_, err := client.GetNearbyRoutes(ctx, NearbyRoutesQuery{})
+		Expect(err).NotTo(HaveOccurred())
 
-	want := nearbyRoutesPayload{
-		Latitude:        defaultLatitude,
-		Longitude:       defaultLongitude,
-		MinRadius:       defaultMinRadius,
-		MaxRadius:       defaultMaxRadius,
-		FavouriteRoutes: []string{},
-	}
-	if payload.Latitude != want.Latitude || payload.Longitude != want.Longitude {
-		t.Errorf("position = (%v, %v), want (%v, %v)", payload.Latitude, payload.Longitude, want.Latitude, want.Longitude)
-	}
-	if payload.MinRadius != want.MinRadius || payload.MaxRadius != want.MaxRadius {
-		t.Errorf("radii = (%v, %v), want (%v, %v)", payload.MinRadius, payload.MaxRadius, want.MinRadius, want.MaxRadius)
-	}
-	if payload.FavouriteRoutes == nil {
-		t.Error("favouriteRoutes was null, want an empty array")
-	}
-}
+		var payload nearbyRoutesPayload
+		Expect(json.Unmarshal([]byte(captured.body), &payload)).To(Succeed())
 
-func TestGetStopSchedulesFormatsDate(t *testing.T) {
-	client, captured := newTestClient(t, `{"amenities":[],"date":"","routeStopSchedules":[]}`)
+		Expect(payload).To(Equal(nearbyRoutesPayload{
+			Latitude:        defaultLatitude,
+			Longitude:       defaultLongitude,
+			MinRadius:       defaultMinRadius,
+			MaxRadius:       defaultMaxRadius,
+			FavouriteRoutes: []string{},
+		}))
+	})
 
-	date := time.Date(2026, time.March, 4, 13, 45, 0, 0, time.UTC)
-	if _, err := client.GetStopSchedules(context.Background(), "1234", date); err != nil {
-		t.Fatalf("GetStopSchedules: %v", err)
-	}
+	It("formats the date for stop schedules", func() {
+		client, captured := newTestClient(`{"amenities":[],"date":"","routeStopSchedules":[]}`)
 
-	want := `{"stopCode":"1234","date":"2026-03-04"}`
-	if captured.body != want {
-		t.Errorf("body = %q, want %q", captured.body, want)
-	}
-}
+		date := time.Date(2026, time.March, 4, 13, 45, 0, 0, time.UTC)
+		_, err := client.GetStopSchedules(ctx, "1234", date)
+		Expect(err).NotTo(HaveOccurred())
 
-func TestFindBusStopsUsesQueryParameter(t *testing.T) {
-	client, captured := newTestClient(t, `[]`)
+		Expect(captured.body).To(Equal(`{"stopCode":"1234","date":"2026-03-04"}`))
+	})
 
-	if _, err := client.FindBusStops(context.Background(), "memorial student center"); err != nil {
-		t.Fatalf("FindBusStops: %v", err)
-	}
+	It("searches bus stops with a query parameter", func() {
+		client, captured := newTestClient(`[]`)
 
-	if captured.method != http.MethodGet {
-		t.Errorf("method = %q, want GET", captured.method)
-	}
-	if want := "searchTerm=memorial+student+center"; captured.query != want {
-		t.Errorf("query = %q, want %q", captured.query, want)
-	}
-	if got := captured.header.Get("Accept"); got != acceptAjax {
-		t.Errorf("Accept = %q, want %q", got, acceptAjax)
-	}
-}
+		_, err := client.FindBusStops(ctx, "memorial student center")
+		Expect(err).NotTo(HaveOccurred())
 
-func TestTripPlanPayloadSendsEmptyStringsForUnsetEndpointFields(t *testing.T) {
-	stopCode := "1234"
-	latitude := 30.61
+		Expect(captured.method).To(Equal(http.MethodGet))
+		Expect(captured.query).To(Equal("searchTerm=memorial+student+center"))
+		Expect(captured.header.Get("Accept")).To(Equal(acceptAjax))
+	})
 
-	payload := TripPlanQuery{
-		Origin: Endpoint{
-			Title:    "MSC",
-			Subtitle: "College Station",
-			StopCode: &stopCode,
-			Latitude: &latitude,
-		},
-		Destination: Endpoint{Title: "Kyle Field"},
-	}.payload()
+	It("omits unset trip plan times and sends a null lang", func() {
+		client, captured := newTestClient(`{"resultCount":0}`)
 
-	if payload.OriginLatitude != latitude {
-		t.Errorf("originLatitude = %v, want %v", payload.OriginLatitude, latitude)
-	}
-	if payload.OriginStopCode != stopCode {
-		t.Errorf("originStopCode = %v, want %v", payload.OriginStopCode, stopCode)
-	}
-	if payload.OriginLongitude != "" {
-		t.Errorf("originLongitude = %v, want an empty string", payload.OriginLongitude)
-	}
-	if payload.DestinationPlaceID != "" {
-		t.Errorf("destinationPlaceId = %v, want an empty string", payload.DestinationPlaceID)
-	}
-}
+		departAt := time.Unix(1772000000, 0)
+		query := TripPlanQuery{
+			Origin:      Endpoint{Title: "MSC"},
+			Destination: Endpoint{Title: "Kyle Field"},
+			DepartAt:    &departAt,
+		}
+		_, err := client.GetTripPlan(ctx, query)
+		Expect(err).NotTo(HaveOccurred())
 
-func TestTripPlanOmitsUnsetTimesAndSendsNullLang(t *testing.T) {
-	client, captured := newTestClient(t, `{"resultCount":0}`)
+		var body map[string]any
+		Expect(json.Unmarshal([]byte(captured.body), &body)).To(Succeed())
 
-	departAt := time.Unix(1772000000, 0)
-	query := TripPlanQuery{
-		Origin:      Endpoint{Title: "MSC"},
-		Destination: Endpoint{Title: "Kyle Field"},
-		DepartAt:    &departAt,
-	}
-	if _, err := client.GetTripPlan(context.Background(), query); err != nil {
-		t.Fatalf("GetTripPlan: %v", err)
-	}
+		Expect(body).NotTo(HaveKey("arriveTime"))
+		Expect(body).To(HaveKeyWithValue("departTime", "1772000000"))
+		Expect(body).To(HaveKeyWithValue("lang", BeNil()))
+	})
 
-	var body map[string]any
-	if err := json.Unmarshal([]byte(captured.body), &body); err != nil {
-		t.Fatalf("unmarshal body: %v", err)
-	}
+	It("carries the response body on a status error", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, "session expired")
+		}))
+		DeferCleanup(server.Close)
 
-	if _, ok := body["arriveTime"]; ok {
-		t.Error("arriveTime was sent, want it omitted")
-	}
-	if got := body["departTime"]; got != "1772000000" {
-		t.Errorf("departTime = %v, want %q", got, "1772000000")
-	}
-	lang, ok := body["lang"]
-	if !ok || lang != nil {
-		t.Errorf("lang = %v (present: %v), want an explicit null", lang, ok)
-	}
-}
+		client := NewClient(ClientConfig{Auth: StaticAuth{}, BaseURL: server.URL, HTTPClient: server.Client()})
 
-func TestStatusErrorCarriesResponseBody(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		io.WriteString(w, "session expired")
-	}))
-	t.Cleanup(server.Close)
+		_, err := client.GetActiveRoutes(ctx)
 
-	client := NewClient(ClientConfig{Auth: StaticAuth{}, BaseURL: server.URL, HTTPClient: server.Client()})
+		var statusErr *StatusError
+		Expect(err).To(BeAssignableToTypeOf(statusErr))
+		statusErr = err.(*StatusError)
+		Expect(statusErr.StatusCode).To(Equal(http.StatusUnauthorized))
+		Expect(statusErr.Body).To(Equal("session expired"))
+	})
+})
 
-	_, err := client.GetActiveRoutes(context.Background())
-	statusErr, ok := err.(*StatusError)
-	if !ok {
-		t.Fatalf("error = %v, want *StatusError", err)
-	}
-	if statusErr.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status = %d, want %d", statusErr.StatusCode, http.StatusUnauthorized)
-	}
-	if statusErr.Body != "session expired" {
-		t.Errorf("body = %q, want %q", statusErr.Body, "session expired")
-	}
-}
+var _ = Describe("TripPlanQuery.payload", Label("unit"), func() {
+	It("sends empty strings for unset endpoint fields", func() {
+		stopCode := "1234"
+		latitude := 30.61
+
+		payload := TripPlanQuery{
+			Origin: Endpoint{
+				Title:    "MSC",
+				Subtitle: "College Station",
+				StopCode: &stopCode,
+				Latitude: &latitude,
+			},
+			Destination: Endpoint{Title: "Kyle Field"},
+		}.payload()
+
+		Expect(payload.OriginLatitude).To(Equal(latitude))
+		Expect(payload.OriginStopCode).To(Equal(stopCode))
+		Expect(payload.OriginLongitude).To(Equal(""))
+		Expect(payload.DestinationPlaceID).To(Equal(""))
+	})
+})

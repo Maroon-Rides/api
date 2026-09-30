@@ -24,8 +24,8 @@ var _ = Describe("SyncPayloads", Label("unit"), func() {
 })
 
 var _ = Describe("sync payloads", Label("unit"), func() {
-	It("sends a stop schedule's service date as a calendar date", func() {
-		payload := dtos.NewSyncStopScheduleV1(model.StopSchedule{
+	It("sends a timetable's service date as a calendar date", func() {
+		payload := dtos.NewSyncTimetableV1(model.Timetable{
 			ServiceDate: time.Date(2026, 9, 27, 0, 0, 0, 0, time.UTC),
 		})
 

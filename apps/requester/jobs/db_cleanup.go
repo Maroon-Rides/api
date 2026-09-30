@@ -5,33 +5,20 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-co-op/gocron/v2"
+	"github.com/MaroonRides/api/apps/requester/services"
 
-	"github.com/MaroonRides/api/apps/requester/repositories"
-	"github.com/MaroonRides/api/internal/db/sync"
+	"github.com/go-co-op/gocron/v2"
 )
 
-const InactiveRouteRetention = 14 * 24 * time.Hour
-
-func NewDatabaseCleanupJob(repo *repositories.RouteDataRepository) Job {
+func NewDatabaseCleanupJob(service *services.DatabaseCleanupService) Job {
 	return Job{
 		Task: func(ctx context.Context) error {
-
-			err := repo.CleanupInactiveRoutes(ctx, InactiveRouteRetention)
-
+			err := service.Cleanup(ctx)
 			if err != nil {
-				slog.Error("failed to cleanup inactive routes", "error", err)
-				return err
+				slog.Error("Failed to clean up database", "error", err)
 			}
 
-			err = repo.CleanupSyncTombstones(ctx, sync.TombstoneRetention)
-
-			if err != nil {
-				slog.Error("failed to cleanup sync tombstones", "error", err)
-				return err
-			}
-
-			return nil
+			return err
 		},
 		Schedule: gocron.DurationJob(12 * time.Hour),
 		Name:     JobDatabaseCleanup,

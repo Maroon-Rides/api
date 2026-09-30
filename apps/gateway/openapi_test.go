@@ -50,6 +50,7 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 		},
 		Entry("request types", "SyncRequestType", dtos.SyncRequestType("").EnumValues()),
 		Entry("entity types", "SyncEntityType", dtos.SyncEntityType("").EnumValues()),
+		Entry("scope types", "SyncScopeType", dtos.SyncScopeType("").EnumValues()),
 	)
 
 	It("refers to the request type enum from the request body", func() {
@@ -76,11 +77,16 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 		}
 	})
 
-	It("names each line variant after its payload", func() {
+	It("names each line variant after its entity type", func() {
 		mapping := component("SyncStreamLine").Discriminator.Mapping
 
-		Expect(mapping["RouteV1"].Ref).To(Equal(componentPrefix + "SyncRouteV1Line"))
-		Expect(component("SyncRouteV1Line").Properties["data"].Ref).To(Equal(componentPrefix + "SyncRouteV1"))
+		Expect(mapping["RouteV1"].Ref).To(Equal(componentPrefix + "RouteV1Line"))
+		Expect(component("RouteV1Line").Properties["data"].Ref).To(Equal(componentPrefix + "SyncRouteV1"))
+	})
+
+	It("publishes the protocol versions", func() {
+		Expect(component("SyncProtocolVersion").Enum).To(ConsistOf(float64(dtos.SyncProtocolVersions.V1)))
+		Expect(component("SyncRequest").Properties["protocol"].Ref).To(Equal(componentPrefix + "SyncProtocolVersion"))
 	})
 
 	It("serves the stream as JSON lines of SyncStreamLine", func() {
@@ -95,7 +101,7 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 		Expect(id.Type.Is(openapi3.TypeString)).To(BeTrue())
 		Expect(id.Format).To(Equal("uuid"))
 
-		date := component("SyncStopScheduleV1").Properties["serviceDate"].Value
+		date := component("SyncTimetableV1").Properties["serviceDate"].Value
 		Expect(date.Type.Is(openapi3.TypeString)).To(BeTrue())
 		Expect(date.Format).To(Equal("date"))
 	})

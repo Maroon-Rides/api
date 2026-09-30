@@ -30,7 +30,8 @@ func registerSyncStreamLine(o *fuego.OpenAPI) {
 		entity := value.(dtos.SyncEntityType)
 		payload := fuego.SchemaTagFromType(o, dtos.SyncPayloads[entity])
 
-		name := payload.Name + syncLineSuffix
+		// Named after the entity, since two versions of an entity may share one payload.
+		name := string(entity) + syncLineSuffix
 		ref := schemaRefPrefix + name
 		schemas[name] = openapi3.NewSchemaRef("", syncLineVariant(entity, payload))
 

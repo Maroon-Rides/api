@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -16,10 +18,18 @@ import (
 
 	"github.com/MaroonRides/api/internal/db/migrations"
 	"github.com/MaroonRides/api/internal/db/model"
+	"github.com/MaroonRides/api/internal/db/notify"
 	"github.com/MaroonRides/api/internal/db/sync"
 )
 
-const envDatabaseURL = "DATABASE_URL"
+const (
+	envDatabaseURL      = "DATABASE_URL"
+	envDatabaseMaxConns = "DATABASE_MAX_CONNS"
+
+	// Every replica of every app opens up to this many, and together they must stay under the server's max_connections.
+	defaultMaxConns = 20
+	connMaxIdleTime = 5 * time.Minute
+)
 
 var ErrDatabaseURLNotSet = errors.New(envDatabaseURL + " is not set")
 
@@ -40,10 +50,18 @@ func New(lc fx.Lifecycle) (*bun.DB, error) {
 		return nil, ErrDatabaseURLNotSet
 	}
 
+	maxConns, err := maxConnsFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	bundb, err := Open(dsn)
 	if err != nil {
 		return nil, err
 	}
+	bundb.SetMaxOpenConns(maxConns)
+	bundb.SetMaxIdleConns(maxConns)
+	bundb.SetConnMaxIdleTime(connMaxIdleTime)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -55,6 +73,19 @@ func New(lc fx.Lifecycle) (*bun.DB, error) {
 	})
 
 	return bundb, nil
+}
+
+func maxConnsFromEnv() (int, error) {
+	raw := os.Getenv(envDatabaseMaxConns)
+	if raw == "" {
+		return defaultMaxConns, nil
+	}
+
+	maxConns, err := strconv.Atoi(raw)
+	if err != nil || maxConns < 1 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", envDatabaseMaxConns, raw)
+	}
+	return maxConns, nil
 }
 
 func Open(dsn string) (*bun.DB, error) {
@@ -78,6 +109,9 @@ func Migrate(ctx context.Context, db *bun.DB) error {
 	}
 	if err := sync.Reconcile(ctx, db, model.SyncTables); err != nil {
 		return fmt.Errorf("reconcile sync triggers: %w", err)
+	}
+	if err := notify.Reconcile(ctx, db); err != nil {
+		return fmt.Errorf("reconcile notify triggers: %w", err)
 	}
 	return nil
 }

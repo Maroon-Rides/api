@@ -6,9 +6,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // The site embeds the token as base64 that is always 288 characters plus a "MQ==" group,
@@ -20,9 +21,7 @@ const testToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 // newSessionServer serves a landing page carrying the token and a session cookie, and a JSON
 // document at every other path. It reports how many times the landing page was read.
-func newSessionServer(t *testing.T, page string) (*httptest.Server, *capturedRequest, *int) {
-	t.Helper()
-
+func newSessionServer(page string) (*httptest.Server, *capturedRequest, *int) {
 	var captured capturedRequest
 	var sessionReads int
 
@@ -39,7 +38,7 @@ func newSessionServer(t *testing.T, page string) (*httptest.Server, *capturedReq
 	})
 
 	server := httptest.NewServer(mux)
-	t.Cleanup(server.Close)
+	DeferCleanup(server.Close)
 	return server, &captured, &sessionReads
 }
 
@@ -48,72 +47,75 @@ func landingPage(token string) string {
 		base64.StdEncoding.EncodeToString([]byte(token)) + `" />`
 }
 
-func TestSessionAuthSendsDecodedTokenAndSessionCookie(t *testing.T) {
-	server, captured, _ := newSessionServer(t, landingPage(testToken))
-	client := NewClient(ClientConfig{BaseURL: server.URL, HTTPClient: server.Client()})
+var _ = Describe("session auth", Label("unit"), func() {
+	ctx := context.Background()
 
-	if _, err := client.GetActiveRoutes(context.Background()); err != nil {
-		t.Fatalf("GetActiveRoutes: %v", err)
-	}
+	It("sends the decoded token and session cookie", func() {
+		server, captured, _ := newSessionServer(landingPage(testToken))
+		client := NewClient(ClientConfig{BaseURL: server.URL, HTTPClient: server.Client()})
 
-	if got := captured.header.Get(headerVerificationToken); got != testToken {
-		t.Errorf("%s = %q, want the decoded token", headerVerificationToken, got)
-	}
-	if got := captured.header.Get(headerRequestedWith); got != valueXMLHTTPRequest {
-		t.Errorf("%s = %q, want %q", headerRequestedWith, got, valueXMLHTTPRequest)
-	}
-	if got := captured.header.Get("Cookie"); !strings.Contains(got, "session=abc") {
-		t.Errorf("Cookie = %q, want the session cookie from the landing page", got)
-	}
-}
+		_, err := client.GetActiveRoutes(ctx)
+		Expect(err).NotTo(HaveOccurred())
 
-func TestSessionTokenIsReusedUntilTheIntervalElapses(t *testing.T) {
-	server, _, sessionReads := newSessionServer(t, landingPage(testToken))
-	client := NewClient(ClientConfig{
-		BaseURL:    server.URL,
-		HTTPClient: server.Client(),
-		SessionTTL: time.Hour,
+		Expect(captured.header.Get(headerVerificationToken)).To(Equal(testToken))
+		Expect(captured.header.Get(headerRequestedWith)).To(Equal(valueXMLHTTPRequest))
+		Expect(captured.header.Get("Cookie")).To(ContainSubstring("session=abc"))
 	})
 
-	for range 3 {
-		if _, err := client.GetActiveRoutes(context.Background()); err != nil {
-			t.Fatalf("GetActiveRoutes: %v", err)
-		}
-	}
+	DescribeTable("reads the landing page again only once the session TTL elapses",
+		func(ttl time.Duration, wantReads int) {
+			server, _, sessionReads := newSessionServer(landingPage(testToken))
+			client := NewClient(ClientConfig{
+				BaseURL:    server.URL,
+				HTTPClient: server.Client(),
+				SessionTTL: ttl,
+			})
 
-	if *sessionReads != 1 {
-		t.Errorf("landing page reads = %d, want 1", *sessionReads)
-	}
-}
+			for range 3 {
+				_, err := client.GetActiveRoutes(ctx)
+				Expect(err).NotTo(HaveOccurred())
+			}
 
-func TestSessionTokenIsReadAgainOnceTheIntervalElapses(t *testing.T) {
-	server, _, sessionReads := newSessionServer(t, landingPage(testToken))
-	client := NewClient(ClientConfig{
-		BaseURL:    server.URL,
-		HTTPClient: server.Client(),
-		SessionTTL: -1,
+			Expect(*sessionReads).To(Equal(wantReads))
+		},
+		Entry("reuses the token within the TTL", time.Hour, 1),
+		Entry("reads it again after the TTL", time.Duration(-1), 3),
+	)
+
+	It("fails when the page carries no token", func() {
+		server, _, _ := newSessionServer("<html>maintenance</html>")
+		client := NewClient(ClientConfig{BaseURL: server.URL, HTTPClient: server.Client()})
+
+		_, err := client.GetActiveRoutes(ctx)
+		Expect(err).To(MatchError(ContainSubstring("no verification token")))
 	})
 
-	for range 3 {
-		if _, err := client.GetActiveRoutes(context.Background()); err != nil {
-			t.Fatalf("GetActiveRoutes: %v", err)
-		}
-	}
+	It("renews a rejected session and retries the request", func() {
+		var sessionReads int
+		var apiCalls int
 
-	if *sessionReads != 3 {
-		t.Errorf("landing page reads = %d, want 3", *sessionReads)
-	}
-}
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			sessionReads++
+			io.WriteString(w, landingPage(testToken))
+		})
+		mux.HandleFunc(pathActiveRoutes, func(w http.ResponseWriter, r *http.Request) {
+			apiCalls++
+			if apiCalls == 1 {
+				w.WriteHeader(http.StatusInternalServerError)
+				io.WriteString(w, `<title>The anti-forgery token could not be decrypted.</title>`)
+				return
+			}
+			w.Header().Set("Content-Type", contentTypeJSON)
+			io.WriteString(w, `[]`)
+		})
+		server := httptest.NewServer(mux)
+		DeferCleanup(server.Close)
 
-func TestSessionAuthFailsWhenThePageCarriesNoToken(t *testing.T) {
-	server, _, _ := newSessionServer(t, "<html>maintenance</html>")
-	client := NewClient(ClientConfig{BaseURL: server.URL, HTTPClient: server.Client()})
+		client := NewClient(ClientConfig{BaseURL: server.URL, HTTPClient: server.Client()})
+		_, err := client.GetActiveRoutes(ctx)
+		Expect(err).NotTo(HaveOccurred())
 
-	_, err := client.GetActiveRoutes(context.Background())
-	if err == nil {
-		t.Fatal("GetActiveRoutes succeeded, want a missing token error")
-	}
-	if !strings.Contains(err.Error(), "no verification token") {
-		t.Errorf("error = %v, want it to name the missing token", err)
-	}
-}
+		Expect(sessionReads).To(Equal(2))
+	})
+})

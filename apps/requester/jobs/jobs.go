@@ -9,20 +9,26 @@ func AsJob(f any) any {
 }
 
 const (
-	JobRouteData       = "route-data"
-	JobLiveData        = "live-data"
-	JobDatabaseCleanup = "database-cleanup"
-	JobTimetable       = "timetable"
+	JobRouteData          = "route-data"
+	JobVehicleLocations   = "vehicle-locations"
+	JobDepartureTimes     = "departure-times"
+	JobRouteKeys          = "route-keys"
+	JobDatabaseCleanup    = "database-cleanup"
+	JobTimetable          = "timetable"
+	JobSubscriptionReaper = "subscription-reaper"
 )
 
 var Module = fx.Options(
 	fx.Provide(
 		AsJob(NewRouteDataJob),
-		AsJob(NewLiveDataJob),
+		AsJob(NewVehicleLocationsJob),
+		AsJob(NewDepartureTimesJob),
+		AsJob(NewRouteKeysJob),
 		AsJob(NewDatabaseCleanupJob),
 		AsJob(NewTimetableJob),
+		AsJob(NewSubscriptionReaperJob),
 	),
-	fx.Provide(NewServiceLocation, NewScheduler),
+	fx.Provide(NewScheduler),
 	fx.Invoke(fx.Annotate(
 		func(lc fx.Lifecycle, scheduler *Scheduler, jobs []Job) error {
 			if err := scheduler.Register(jobs); err != nil {

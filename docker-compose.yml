@@ -29,6 +29,24 @@ services:
       postgres:
         condition: service_healthy
 
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: ["air", "-c", ".air.gateway.toml"]
+    environment:
+      DATABASE_URL: postgres://maroonrides:maroonrides@postgres:5432/maroonrides?sslmode=disable
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - go-mod:/go/pkg/mod
+      - go-build:/root/.cache/go-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   go-mod:

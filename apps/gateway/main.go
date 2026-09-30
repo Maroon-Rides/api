@@ -17,6 +17,7 @@ func main() {
 		db.Module,
 
 		fx.Invoke(NewServer),
+		fx.Invoke(ListenForLiveData),
 	)
 
 	app.Run()

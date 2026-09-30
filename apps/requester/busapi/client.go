@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,8 @@ const (
 	acceptAjax      = "application/json, text/javascript, */*; q=0.01"
 
 	errorBodyLimit = 512
+
+	antiforgeryErrorMarker = "anti-forgery"
 )
 
 // Client calls the Texas A&M AggieSpirit bus API. It is safe for concurrent use, and by
@@ -93,6 +96,12 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("aggiespirit: %s %s: %s: %s", e.Method, e.URL, http.StatusText(e.StatusCode), e.Body)
 }
 
+// sessionRejected reports whether the server refused the session's antiforgery token,
+// which it does with a 500 error page rather than a 4xx.
+func (e *StatusError) sessionRejected() bool {
+	return e.StatusCode == http.StatusInternalServerError && strings.Contains(e.Body, antiforgeryErrorMarker)
+}
+
 type request struct {
 	method      string
 	path        string
@@ -103,6 +112,17 @@ type request struct {
 }
 
 func (c *Client) do(ctx context.Context, r request, out any) error {
+	err := c.send(ctx, r, out)
+
+	var statusErr *StatusError
+	if errors.As(err, &statusErr) && statusErr.sessionRejected() {
+		c.auth.Invalidate()
+		return c.send(ctx, r, out)
+	}
+	return err
+}
+
+func (c *Client) send(ctx context.Context, r request, out any) error {
 	endpoint := c.baseURL + r.path
 	if len(r.query) > 0 {
 		endpoint += "?" + r.query.Encode()

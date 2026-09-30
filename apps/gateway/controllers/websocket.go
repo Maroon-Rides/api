@@ -3,85 +3,162 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"strings"
+	"errors"
+	"log/slog"
+	"net/http"
+	"sync"
+	"time"
 
-	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/go-fuego/fuego"
-	"github.com/zishang520/engine.io/v2/types"
-	"github.com/zishang520/socket.io/v2/socket"
-	"go.uber.org/fx"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+
+	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/services"
 )
 
 const (
-	websocketRoute  = "/ws/"
-	websocketPath   = "/api/ws"
-	routeRoomPrefix = "route:"
+	websocketRoute = "/ws"
+
+	// A client that sends nothing, not even a ping, for this long is dropped.
+	clientIdleTimeout  = 60 * time.Second
+	clientWriteTimeout = 10 * time.Second
+	clientOutboxSize   = 32
+)
+
+var (
+	errClientClosed  = errors.New("websocket client closed")
+	errClientTooSlow = errors.New("websocket client fell behind")
 )
 
 type WebsocketController struct {
-	svc *services.WebsocketService
-	io  *socket.Server
+	svc      *services.WebsocketService
+	upgrader websocket.Upgrader
 }
 
-func NewWebsocketController(lc fx.Lifecycle, svc *services.WebsocketService) *WebsocketController {
-	opts := socket.DefaultServerOptions()
-	opts.SetPath(websocketPath)
-	opts.SetTransports(types.NewSet("websocket"))
+type websocketClient struct {
+	conn      *websocket.Conn
+	outbox    chan any
+	closed    chan struct{}
+	closeOnce sync.Once
+}
 
-	c := &WebsocketController{svc: svc, io: socket.NewServer(nil, opts)}
-	c.io.On("connection", func(args ...any) {
-		c.handleConnection(args[0].(*socket.Socket))
-	})
+func newWebsocketClient(conn *websocket.Conn) *websocketClient {
+	return &websocketClient{
+		conn:   conn,
+		outbox: make(chan any, clientOutboxSize),
+		closed: make(chan struct{}),
+	}
+}
 
-	adapter := c.io.Sockets().Adapter()
-	adapter.On("create-room", func(args ...any) {
-		if routeID, ok := routeIDFromRoom(args[0].(socket.Room)); ok {
-			c.svc.RouteRoomCreated(routeID)
+// Send never blocks, so a stalled client cannot hold up a broadcast. A client
+// whose outbox is full is dropped.
+func (c *websocketClient) Send(message any) error {
+	select {
+	case <-c.closed:
+		return errClientClosed
+	case c.outbox <- message:
+		return nil
+	default:
+		c.close()
+		return errClientTooSlow
+	}
+}
+
+func (c *websocketClient) writeLoop() {
+	for {
+		select {
+		case <-c.closed:
+			return
+		case message := <-c.outbox:
+			if err := c.conn.SetWriteDeadline(time.Now().Add(clientWriteTimeout)); err != nil {
+				c.close()
+				return
+			}
+			if err := c.conn.WriteJSON(message); err != nil {
+				c.close()
+				return
+			}
 		}
-	})
-	adapter.On("delete-room", func(args ...any) {
-		if routeID, ok := routeIDFromRoom(args[0].(socket.Room)); ok {
-			c.svc.RouteRoomDeleted(routeID)
-		}
-	})
+	}
+}
 
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			c.io.Close(nil)
-			return nil
-		},
+// close also ends the read loop, which unsubscribes the client.
+func (c *websocketClient) close() {
+	c.closeOnce.Do(func() {
+		close(c.closed)
+		c.conn.Close()
 	})
+}
 
-	return c
+func NewWebsocketController(svc *services.WebsocketService) *WebsocketController {
+	return &WebsocketController{svc: svc}
 }
 
 func (c *WebsocketController) Register(api *fuego.Server) {
-	fuego.Handle(api, websocketRoute, c.io.ServeHandler(nil), fuego.OptionHide())
+	fuego.Handle(api, websocketRoute, http.HandlerFunc(c.serve), fuego.OptionHide())
 }
 
-func (c *WebsocketController) Broadcast(event string, payload any) error {
-	data, err := json.Marshal(payload)
+func (c *WebsocketController) serve(w http.ResponseWriter, r *http.Request) {
+	conn, err := c.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return err
+		return
 	}
-	c.io.Emit(event, string(data))
-	return nil
-}
-
-func (c *WebsocketController) handleConnection(client *socket.Socket) {
-	clientID := string(client.Id())
+	clientID := uuid.Must(uuid.NewV7())
+	client := newWebsocketClient(conn)
+	defer client.close()
+	go client.writeLoop()
 	c.svc.ClientConnected(clientID)
 
-	client.On("disconnect", func(args ...any) {
-		c.svc.ClientDisconnected(clientID, fmt.Sprint(args...))
-	})
+	err = c.readLoop(r.Context(), clientID, client)
+	c.svc.ClientDisconnected(context.Background(), clientID, client, err.Error())
 }
 
-func routeRoom(routeID string) socket.Room {
-	return socket.Room(routeRoomPrefix + routeID)
+func (c *WebsocketController) readLoop(ctx context.Context, clientID uuid.UUID, client *websocketClient) error {
+	for {
+		if err := client.conn.SetReadDeadline(time.Now().Add(clientIdleTimeout)); err != nil {
+			return err
+		}
+		_, data, err := client.conn.ReadMessage()
+		if err != nil {
+			return err
+		}
+
+		var message dtos.WebsocketClientMessage
+		if err := json.Unmarshal(data, &message); err != nil {
+			sendError(client, "invalid message")
+			continue
+		}
+
+		c.handleMessage(ctx, clientID, client, message)
+	}
 }
 
-func routeIDFromRoom(room socket.Room) (string, bool) {
-	return strings.CutPrefix(string(room), routeRoomPrefix)
+func (c *WebsocketController) handleMessage(ctx context.Context, clientID uuid.UUID, client *websocketClient, message dtos.WebsocketClientMessage) {
+	switch message.Type {
+	case dtos.WebsocketMessageTypes.Subscribe:
+		if message.RouteID == uuid.Nil {
+			sendError(client, "routeId is required")
+			return
+		}
+		if err := c.svc.Subscribe(ctx, client, message.RouteID); err != nil {
+			slog.Error("Failed to subscribe to route", "id", clientID, "routeId", message.RouteID, "error", err)
+			sendError(client, "failed to subscribe")
+		}
+	case dtos.WebsocketMessageTypes.Unsubscribe:
+		c.svc.Unsubscribe(ctx, client)
+	case dtos.WebsocketMessageTypes.Ping:
+		if err := client.Send(dtos.WebsocketPongMessage{Type: dtos.WebsocketMessageTypes.Pong}); err != nil {
+			slog.Warn("Failed to send websocket pong", "id", clientID, "error", err)
+		}
+	default:
+		sendError(client, "unknown message type")
+	}
+}
+
+func sendError(client *websocketClient, message string) {
+	err := client.Send(dtos.WebsocketErrorMessage{Type: dtos.WebsocketMessageTypes.Error, Message: message})
+	if err != nil {
+		slog.Warn("Failed to send websocket error", "error", err)
+	}
 }

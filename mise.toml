@@ -1,6 +1,7 @@
 [tools]
 go = "1.27"
 atlas = "latest"
+k6 = "latest"
 "go:github.com/onsi/ginkgo/v2/ginkgo" = "2.33.0"
 
 [tasks."db:diff"]
@@ -38,3 +39,14 @@ run = "docker compose down -v"
 [tasks."dev:clean"]
 description = "Clean up the dev stack and remove any leftover volumes"
 run = "docker compose down -v --rmi all"
+
+[tasks.load]
+description = "Load test the dev stack at 3x peak traffic, with k6 inside Docker and the gateway capped at 200mbit. SYNC_TIMETABLES=false leaves timetables out of every sync"
+run = [
+  "docker compose -f docker-compose.yml -f docker-compose.load.yml up -d --build --wait",
+  "docker compose -f docker-compose.yml -f docker-compose.load.yml run --rm k6",
+]
+
+[tasks."load:remote"]
+description = "Load test a deployed gateway at 3x peak traffic. Set BASE_URL to its address"
+run = "ulimit -n 65536 && k6 run k6/load-test.ts"

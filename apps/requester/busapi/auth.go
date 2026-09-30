@@ -23,6 +23,8 @@ const (
 // Implementations may refresh an expired session before returning.
 type AuthProvider interface {
 	Auth(ctx context.Context) (Auth, error)
+	// Invalidate drops the current session so the next Auth call starts a new one.
+	Invalidate()
 }
 
 // StaticAuth is an AuthProvider for headers that never change.
@@ -31,6 +33,8 @@ type StaticAuth Auth
 func (a StaticAuth) Auth(context.Context) (Auth, error) {
 	return Auth(a), nil
 }
+
+func (a StaticAuth) Invalidate() {}
 
 // verificationTokenPattern matches the base64 antiforgery token the site embeds in each page.
 var verificationTokenPattern = regexp.MustCompile(`"([a-zA-Z0-9]{288}MQ==)"`)
@@ -66,6 +70,12 @@ func (a *sessionAuth) Auth(ctx context.Context) (Auth, error) {
 	}
 	a.renewAt = time.Now().Add(a.ttl)
 	return a.headers, nil
+}
+
+func (a *sessionAuth) Invalidate() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.headers = nil
 }
 
 func (a *sessionAuth) fetchToken(ctx context.Context) (string, error) {
