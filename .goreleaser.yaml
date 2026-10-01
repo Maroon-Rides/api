@@ -1,0 +1,65 @@
+version: 2
+
+project_name: maroonrides-api
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: gateway
+    binary: gateway
+    main: ./apps/gateway
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+  - id: requester
+    binary: requester
+    main: ./apps/requester
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: gateway
+    ids: [gateway]
+    name_template: "gateway_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  - id: requester
+    ids: [requester]
+    name_template: "requester_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+dockers_v2:
+  - id: gateway
+    ids: [gateway]
+    dockerfile: apps/gateway/Dockerfile
+    images: [ghcr.io/maroon-rides/api-gateway]
+    tags: ["{{ .Version }}", latest]
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+
+  - id: requester
+    ids: [requester]
+    dockerfile: apps/requester/Dockerfile
+    images: [ghcr.io/maroon-rides/api-requester]
+    tags: ["{{ .Version }}", latest]
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  mode: keep-existing
