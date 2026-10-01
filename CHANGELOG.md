@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/Maroon-Rides/api/compare/v1.0.0...v1.1.0) (2026-10-01)
+
+
+### Features
+
+* default direction stop timepoints to false and keep them across route syncs ([a85194f](https://github.com/Maroon-Rides/api/commit/a85194f782b672eac2d3ef1be85c5e8dd0e85249))
+* sync stop timepoints hourly from the tamu gtfs feed ([008ffd3](https://github.com/Maroon-Rides/api/commit/008ffd373a516eafe4ee5dcf6a531bb1b5960a49))
+
+
+### Bug Fixes
+
+* start job scheduler after migrations apply ([10ba24e](https://github.com/Maroon-Rides/api/commit/10ba24ee95c9de83a027b0e22627f01113c2f6c0))
+
 ## 1.0.0 (2026-10-01)
 
 
