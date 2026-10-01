@@ -12,8 +12,8 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/MaroonRides/api/apps/requester/busapi"
 	"github.com/MaroonRides/api/apps/requester/repositories"
+	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/MaroonRides/api/internal/db/model"
 )
 

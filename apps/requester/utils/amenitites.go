@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/MaroonRides/api/apps/requester/busapi"
+	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/samber/lo"
 )
 

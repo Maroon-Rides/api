@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/uptrace/bun"
 
-	"github.com/MaroonRides/api/apps/requester/busapi"
 	"github.com/MaroonRides/api/apps/requester/repositories"
+	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	requester "github.com/MaroonRides/api/apps/requester/services"
 	"github.com/MaroonRides/api/internal/db/model"
 	"github.com/MaroonRides/api/test"

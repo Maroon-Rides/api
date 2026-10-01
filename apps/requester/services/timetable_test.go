@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/MaroonRides/api/apps/requester/busapi"
+	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/MaroonRides/api/internal/db/model"
 )
 

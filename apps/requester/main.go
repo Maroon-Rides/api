@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/MaroonRides/api/apps/requester/busapi"
 	"github.com/MaroonRides/api/apps/requester/jobs"
 	"github.com/MaroonRides/api/apps/requester/repositories"
 	"github.com/MaroonRides/api/apps/requester/services"
@@ -11,7 +10,6 @@ import (
 
 var app = fx.Options(
 	jobs.Module,
-	busapi.Module,
 	repositories.Module,
 	services.Module,
 	db.Module,
