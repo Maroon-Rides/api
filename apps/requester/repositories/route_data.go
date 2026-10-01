@@ -184,6 +184,42 @@ func (r *RouteDataRepository) UpsertDirectionStops(ctx context.Context, directio
 	return err
 }
 
+// DirectionStopRef names a direction stop by the route short name and stop code that GTFS uses.
+type DirectionStopRef struct {
+	ID             uuid.UUID `bun:"id"`
+	RouteShortName string    `bun:"routeShortName"`
+	StopSourceID   string    `bun:"stopSourceId"`
+	IsTimepoint    bool      `bun:"isTimepoint"`
+}
+
+func (r *RouteDataRepository) GetDirectionStopRefs(ctx context.Context) ([]DirectionStopRef, error) {
+	var refs []DirectionStopRef
+	err := r.db.NewSelect().
+		TableExpr(`"direction_stop" AS ds`).
+		ColumnExpr(`ds."id", ds."isTimepoint"`).
+		ColumnExpr(`r."shortName" AS "routeShortName", s."sourceId" AS "stopSourceId"`).
+		Join(`JOIN "stop" AS s ON s."id" = ds."stopId"`).
+		Join(`JOIN "direction" AS d ON d."id" = ds."directionId"`).
+		Join(`JOIN "route" AS r ON r."id" = d."routeId"`).
+		Scan(ctx, &refs)
+
+	return refs, err
+}
+
+func (r *RouteDataRepository) SetTimepoints(ctx context.Context, directionStopIDs []uuid.UUID, isTimepoint bool) error {
+	if len(directionStopIDs) == 0 {
+		return nil
+	}
+
+	_, err := r.db.NewUpdate().
+		Model((*model.DirectionStop)(nil)).
+		Set("? = ?", bun.Ident("isTimepoint"), isTimepoint).
+		Where("? IN (?)", bun.Ident("id"), bun.In(directionStopIDs)).
+		Exec(ctx)
+
+	return err
+}
+
 // SyncVehicles replaces the vehicles of the given routes, leaving other routes untouched.
 func (r *RouteDataRepository) SyncVehicles(ctx context.Context, routeIDs []uuid.UUID, vehicles []model.Vehicle) error {
 	if len(routeIDs) == 0 {

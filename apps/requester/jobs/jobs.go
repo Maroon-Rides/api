@@ -18,6 +18,7 @@ const (
 	JobDatabaseCleanup    = "database-cleanup"
 	JobTimetable          = "timetable"
 	JobSubscriptionReaper = "subscription-reaper"
+	JobTimepoints         = "timepoints"
 )
 
 var Module = fx.Options(
@@ -29,6 +30,7 @@ var Module = fx.Options(
 		AsJob(NewDatabaseCleanupJob),
 		AsJob(NewTimetableJob),
 		AsJob(NewSubscriptionReaperJob),
+		AsJob(NewTimepointsJob),
 	),
 	fx.Provide(NewScheduler),
 	fx.Invoke(fx.Annotate(

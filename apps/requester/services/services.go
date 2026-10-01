@@ -18,6 +18,7 @@ var Module = fx.Provide(
 	NewRouteDataService,
 	NewLiveDataService,
 	NewTimetableService,
+	NewTimepointService,
 	NewDatabaseCleanupService,
 )
 
