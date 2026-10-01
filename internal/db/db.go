@@ -35,13 +35,17 @@ var ErrDatabaseURLNotSet = errors.New(envDatabaseURL + " is not set")
 
 var Module = fx.Provide(New)
 
+// Migrated is a dependency for anything that must start after the schema is up to date.
+type Migrated struct{}
+
 // MigrateOnStart is opt-in so only one app owns schema changes.
-var MigrateOnStart = fx.Invoke(func(lc fx.Lifecycle, bundb *bun.DB) {
+var MigrateOnStart = fx.Provide(func(lc fx.Lifecycle, bundb *bun.DB) Migrated {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			return Migrate(ctx, bundb)
 		},
 	})
+	return Migrated{}
 })
 
 func New(lc fx.Lifecycle) (*bun.DB, error) {

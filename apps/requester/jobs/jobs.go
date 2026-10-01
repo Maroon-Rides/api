@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"go.uber.org/fx"
+
+	"github.com/MaroonRides/api/internal/db"
 )
 
 func AsJob(f any) any {
@@ -30,7 +32,7 @@ var Module = fx.Options(
 	),
 	fx.Provide(NewScheduler),
 	fx.Invoke(fx.Annotate(
-		func(lc fx.Lifecycle, scheduler *Scheduler, jobs []Job) error {
+		func(lc fx.Lifecycle, scheduler *Scheduler, jobs []Job, _ db.Migrated) error {
 			if err := scheduler.Register(jobs); err != nil {
 				return err
 			}
