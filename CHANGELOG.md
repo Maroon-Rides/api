@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/Maroon-Rides/api/compare/v1.1.0...v1.2.0) (2026-10-01)
+
+
+### Features
+
+* log failed job runs from the scheduler ([c43140c](https://github.com/Maroon-Rides/api/commit/c43140cc2d079d83e36d7b17d4e1e9bd06dda1e4))
+
+
+### Bug Fixes
+
+* skip tls verification for the gtfs feed ([aa254c7](https://github.com/Maroon-Rides/api/commit/aa254c7c349108cff99e9db9751deb059d743343))
+
 ## [1.1.0](https://github.com/Maroon-Rides/api/compare/v1.0.0...v1.1.0) (2026-10-01)
 
 
