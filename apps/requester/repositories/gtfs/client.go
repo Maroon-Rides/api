@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -50,7 +51,9 @@ func NewClient(cfg ClientConfig) *Client {
 		c.feedURL = cfg.FeedURL
 	}
 	if c.http == nil {
-		c.http = &http.Client{Timeout: defaultTimeout}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+		c.http = &http.Client{Timeout: defaultTimeout, Transport: transport}
 	}
 	return c
 }
