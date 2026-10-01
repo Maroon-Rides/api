@@ -176,9 +176,9 @@ func (r *RouteDataRepository) UpsertDirectionStops(ctx context.Context, directio
 	_, err := upsertAll(ctx, r.db, directionStops,
 		func(ds model.DirectionStop) string { return ds.DirectionID.String() + ds.StopID.String() },
 		upsertSpec{
-			columns:  []string{"directionId", "stopId", "sequence", "isTimepoint"},
+			columns:  []string{"directionId", "stopId", "sequence"},
 			conflict: `CONFLICT ("directionId", "stopId") DO UPDATE`,
-			set:      `"sequence" = EXCLUDED."sequence", "isTimepoint" = EXCLUDED."isTimepoint"`,
+			set:      `"sequence" = EXCLUDED."sequence"`,
 		})
 
 	return err

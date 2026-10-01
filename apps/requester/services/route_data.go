@@ -232,7 +232,6 @@ func directionStopRows(paths []busapi.PatternPathsResponse, directions map[strin
 					DirectionID: direction.ID,
 					StopID:      stop.ID,
 					Sequence:    sequence,
-					IsTimepoint: false, // TODO: update this logic
 				})
 			}
 		}

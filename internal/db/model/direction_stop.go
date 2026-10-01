@@ -16,7 +16,7 @@ type DirectionStop struct {
 	StopID      uuid.UUID `bun:"stopId,type:uuid,notnull,unique:direction_stop_uq"`
 
 	Sequence    int  `bun:"sequence,notnull"`
-	IsTimepoint bool `bun:"isTimepoint,notnull"`
+	IsTimepoint bool `bun:"isTimepoint,notnull,default:false"`
 
 	Direction *Direction `bun:"rel:belongs-to,join:directionId=id,on_delete:CASCADE"`
 	Stop      *Stop      `bun:"rel:belongs-to,join:stopId=id,on_delete:CASCADE"`

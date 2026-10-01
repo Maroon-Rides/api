@@ -1,4 +1,4 @@
-h1:rlPWze44wRwLmf3hcCMxb2VCpC/tA9rY5JGWJPJy6qo=
+h1:yhj7SOgF+jMfmPWij/99z7bozfQM0+1FXq9qYPaWdGs=
 20260927192657_initial_tables.sql h1:MvX5nd5hspGOKgoPp5crmIjsXj++Bik6/7p5g2deFqo=
 20260927202630_passenger_count.sql h1:wrAWgyra+WZe0q0DxXT8c8K87Jgsbgtp3SnrFX+/hcQ=
 20260927222835_stop_schedule.sql h1:9CXXfeiycy5z/XG2sjzhHGuhBfvADJy2oovAiWuE1aQ=
@@ -9,3 +9,4 @@ h1:rlPWze44wRwLmf3hcCMxb2VCpC/tA9rY5JGWJPJy6qo=
 20260930153839_scoped_timetables.sql h1:igeQciMtt4LJAy8HMPbyexU3k/SUxZL6QqBaGEbpuOk=
 20260930161916_sync_metadata.sql h1:GzPhsuzWN8rHYPcHu48kW+4dUnqsnA9VWzajdPM/J88=
 20261001001300_drop_timetable_scope.sql h1:+EKbylBAop6KE4L/gjwq7erjwWtkqOixMjJbZdITbSw=
+20261001164832_direction_stop_timepoint_default.sql h1:DLlPM/Qb60yBstp74J+TPnZGVJRfnNGXAyHiLhItMzg=
