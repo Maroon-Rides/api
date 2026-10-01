@@ -50,14 +50,11 @@ const ACKED_ENTITY_TYPES = [
   'AlertDeleteV1',
   'AlertDirectionV1',
   'AlertDirectionDeleteV1',
+  ...(SYNC_TIMETABLES ? ['TimetableV1', 'TimetableDeleteV1'] : []),
   'SyncCompleteV1',
 ];
 
-// Timetables sync one route at a time, so their acks carry the route id.
-const ROUTE_SCOPED_ENTITY_TYPES = ['TimetableV1', 'TimetableDeleteV1'];
-const SYNC_SCOPE_TYPES = { OFFLINE_ROUTES_V1: 'OfflineRoutesV1' } as const;
 const SYNC_PROTOCOL_VERSION = 1;
-const OFFLINE_ROUTES_PER_CLIENT = 3;
 
 const SUSTAINED_RATE = PEAK_SUSTAINED_SESSIONS * LOAD_MULTIPLIER;
 const SPIKE_RATE = PEAK_SPIKE_SESSIONS * LOAD_MULTIPLIER;
@@ -177,7 +174,7 @@ export const options: Options = {
 };
 
 export function setup(): SetupData {
-  const routeIds = routeIdsIn(sync([], [], SYNC_KINDS.SETUP));
+  const routeIds = routeIdsIn(sync([], SYNC_KINDS.SETUP));
   if (routeIds.length === 0) {
     throw new Error('setup sync returned no active routes; is the requester running?');
   }
@@ -185,24 +182,17 @@ export function setup(): SetupData {
 }
 
 export default function (data: SetupData) {
-  const offlineRouteIds = pickSome(data.routeIds, OFFLINE_ROUTES_PER_CLIENT);
   const routeIds =
-    Math.random() < FULL_SYNC_SHARE
-      ? routeIdsIn(sync([], offlineRouteIds, SYNC_KINDS.FULL))
-      : partialSync(data, offlineRouteIds);
+    Math.random() < FULL_SYNC_SHARE ? routeIdsIn(sync([], SYNC_KINDS.FULL)) : partialSync(data);
   holdLiveSession(routeIds.length > 0 ? routeIds : data.routeIds);
 }
 
 // A returning client already holds its routes, so a partial sync only has to return what changed.
-function partialSync(data: SetupData, offlineRouteIds: string[]): string[] {
+function partialSync(data: SetupData): string[] {
   const checkpoint = pickWeighted(PARTIAL_SYNC_CHECKPOINTS);
   const ackID = uuidv7At(Date.parse(checkpoint.syncedAt));
-  const scopedAcks = offlineRouteIds.flatMap((routeId) =>
-    ROUTE_SCOPED_ENTITY_TYPES.map((type) => `${type}:${routeId}|${ackID}`),
-  );
   sync(
-    [...ACKED_ENTITY_TYPES.map((type) => `${type}|${ackID}`), ...scopedAcks],
-    offlineRouteIds,
+    ACKED_ENTITY_TYPES.map((type) => `${type}|${ackID}`),
     SYNC_KINDS.PARTIAL,
     { checkpoint: checkpoint.label },
   );
@@ -217,9 +207,8 @@ function routeIdsIn(body: string): string[] {
   return activeRouteIds(routes);
 }
 
-function sync(acks: string[], offlineRouteIds: string[], kind: SyncKind, tags: Record<string, string> = {}): string {
-  const scopes = [{ type: SYNC_SCOPE_TYPES.OFFLINE_ROUTES_V1, ids: offlineRouteIds }];
-  const res = http.post(SYNC_URL, JSON.stringify({ protocol: SYNC_PROTOCOL_VERSION, types: SYNC_TYPES, scopes, acks }), {
+function sync(acks: string[], kind: SyncKind, tags: Record<string, string> = {}): string {
+  const res = http.post(SYNC_URL, JSON.stringify({ protocol: SYNC_PROTOCOL_VERSION, types: SYNC_TYPES, acks }), {
     headers: { 'Content-Type': 'application/json' },
     tags: { sync: kind, ...tags },
   });
@@ -329,10 +318,6 @@ function activeRouteIds(routes: SyncRouteV1[]): string[] {
 
 function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
-}
-
-function pickSome<T>(items: T[], count: number): T[] {
-  return [...items].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
 function pickOther<T>(items: T[], current: T): T {

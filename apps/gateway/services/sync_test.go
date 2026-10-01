@@ -7,12 +7,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
 	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/MaroonRides/api/internal/db/model"
-	"github.com/MaroonRides/api/internal/db/sync"
 )
 
 var (
@@ -125,7 +123,7 @@ var _ = Describe("SyncService.Plan", Label("unit"), func() {
 		_, err := svc.Plan(dtos.SyncRequest{
 			Protocol: dtos.SyncProtocolVersions.V1,
 			Types:    []dtos.SyncRequestType{requests.RoutesV1},
-			Acks:     []string{services.FormatAck(services.SyncAckKey{Entity: entities.StopV1}, newV7())},
+			Acks:     []string{services.FormatAck(entities.StopV1, newV7())},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -195,105 +193,18 @@ var _ = Describe("acks", Label("unit"), func() {
 	It("round-trips through FormatAck and ParseAck", func() {
 		id := newV7()
 
-		ack := services.FormatAck(services.SyncAckKey{Entity: entities.DirectionStopDeleteV1}, id)
+		ack := services.FormatAck(entities.DirectionStopDeleteV1, id)
 		Expect(ack).To(Equal("DirectionStopDeleteV1|" + id.String()))
 
-		key, parsed, err := services.ParseAck(ack)
+		entity, parsed, err := services.ParseAck(ack)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(key).To(Equal(services.SyncAckKey{Entity: entities.DirectionStopDeleteV1}))
+		Expect(entity).To(Equal(entities.DirectionStopDeleteV1))
 		Expect(parsed).To(Equal(id))
 	})
 
-	It("round-trips a scoped ack", func() {
-		id, routeID := newV7(), uuid.New()
-
-		ack := services.FormatAck(services.SyncAckKey{Entity: entities.TimetableV1, Scope: routeID}, id)
-		Expect(ack).To(Equal("TimetableV1:" + routeID.String() + "|" + id.String()))
-
-		key, parsed, err := services.ParseAck(ack)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(key).To(Equal(services.SyncAckKey{Entity: entities.TimetableV1, Scope: routeID}))
-		Expect(parsed).To(Equal(id))
+	// Clients from before scopes were removed kept one timetable ack per route.
+	It("rejects an ack carrying a route", func() {
+		_, _, err := services.ParseAck("TimetableV1:" + uuid.New().String() + "|" + newV7().String())
+		Expect(err).To(MatchError(services.ErrInvalidSyncRequest))
 	})
-
-	DescribeTable("rejects a scope that does not fit the entity",
-		func(ack string) {
-			_, _, err := services.ParseAck(ack)
-			Expect(err).To(MatchError(services.ErrInvalidSyncRequest))
-		},
-		Entry("a scoped entity with no scope", "TimetableV1|"+newV7().String()),
-		Entry("a scoped delete with no scope", "TimetableDeleteV1|"+newV7().String()),
-		Entry("an unscoped entity with a scope", "RouteV1:"+uuid.New().String()+"|"+newV7().String()),
-		Entry("a scoped complete", "SyncCompleteV1:"+uuid.New().String()+"|"+newV7().String()),
-		Entry("a garbage scope", "TimetableV1:route-01|"+newV7().String()),
-		Entry("a nil scope", "TimetableV1:"+uuid.Nil.String()+"|"+newV7().String()),
-		Entry("an empty scope", "TimetableV1:|"+newV7().String()),
-	)
-})
-
-var _ = Describe("scoped streams", Label("unit"), func() {
-	tableScope := func(modelType reflect.Type) string {
-		table, found := lo.Find(model.SyncTables, func(t sync.Table) bool {
-			return reflect.TypeOf(t.Model).Elem() == modelType
-		})
-		Expect(found).To(BeTrue())
-		return table.Scope
-	}
-
-	// An older version of a stream may stay unscoped after its table gains a scope.
-	It("filter on the column their table is scoped by, if any", func() {
-		for _, s := range services.SyncStreams {
-			if s.ScopeColumn != "" {
-				Expect(s.ScopeColumn).To(Equal(tableScope(s.Model)), "%s", s.Request)
-			}
-			Expect(s.ScopeType == "").To(Equal(s.ScopeColumn == ""), "%s sets only half its scope", s.Request)
-		}
-	})
-
-	It("scope timetables by route", func() {
-		timetables, _ := lo.Find(services.SyncStreams, func(s services.SyncStream) bool { return s.Request == requests.TimetablesV1 })
-		Expect(timetables.ScopeType).To(Equal(dtos.SyncScopeTypes.OfflineRoutesV1))
-	})
-})
-
-var _ = Describe("SyncService.Plan scopes", Label("unit"), func() {
-	svc := services.NewSyncService(nil)
-	route := dtos.SyncScopeTypes.OfflineRoutesV1
-
-	It("accepts scopes for types outside the request", func() {
-		_, err := svc.Plan(dtos.SyncRequest{
-			Protocol: dtos.SyncProtocolVersions.V1,
-			Types:    []dtos.SyncRequestType{requests.RoutesV1},
-			Scopes:   []dtos.SyncScope{{Type: route, IDs: []uuid.UUID{uuid.New()}}},
-		})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("accepts a scoped type with no scope ids", func() {
-		_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.TimetablesV1}})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("accepts a repeated scope id", func() {
-		id := uuid.New()
-		_, err := svc.Plan(dtos.SyncRequest{
-			Protocol: dtos.SyncProtocolVersions.V1,
-			Types:    []dtos.SyncRequestType{requests.TimetablesV1},
-			Scopes:   []dtos.SyncScope{{Type: route, IDs: []uuid.UUID{id, id}}},
-		})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	DescribeTable("rejects bad scopes",
-		func(scopes []dtos.SyncScope) {
-			_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.TimetablesV1}, Scopes: scopes})
-			Expect(err).To(MatchError(services.ErrInvalidSyncRequest))
-		},
-		Entry("an unknown scope type", []dtos.SyncScope{{Type: "Stop", IDs: []uuid.UUID{uuid.New()}}}),
-		Entry("a scope type listed twice", []dtos.SyncScope{
-			{Type: route, IDs: []uuid.UUID{uuid.New()}},
-			{Type: route, IDs: []uuid.UUID{uuid.New()}},
-		}),
-		Entry("a nil id", []dtos.SyncScope{{Type: route, IDs: []uuid.UUID{uuid.Nil}}}),
-	)
 })

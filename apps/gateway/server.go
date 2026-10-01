@@ -22,7 +22,7 @@ type Controllers struct {
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
-	return cors.New(cors.Options{AllowedOrigins: config.AllowedOrigins}).Handler(next)
+	return cors.AllowAll().Handler(next)
 }
 
 func registerAPI(server *fuego.Server, all []controllers.Controller) {

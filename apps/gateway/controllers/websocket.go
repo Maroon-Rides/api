@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
-	"github.com/MaroonRides/api/apps/gateway/config"
 	"github.com/MaroonRides/api/apps/gateway/dtos"
 	"github.com/MaroonRides/api/apps/gateway/services"
 )
@@ -96,14 +94,13 @@ func (c *websocketClient) close() {
 func NewWebsocketController(svc *services.WebsocketService) *WebsocketController {
 	return &WebsocketController{
 		svc:      svc,
-		upgrader: websocket.Upgrader{CheckOrigin: isAllowedOrigin},
+		upgrader: websocket.Upgrader{CheckOrigin: allowAnyOrigin},
 	}
 }
 
-// Clients outside a browser send no Origin, so only a browser on another site is refused.
-func isAllowedOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	return origin == "" || slices.Contains(config.AllowedOrigins, origin)
+// Every route serves public data, so any site may open a socket.
+func allowAnyOrigin(*http.Request) bool {
+	return true
 }
 
 func (c *WebsocketController) Register(api *fuego.Server) {

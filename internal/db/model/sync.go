@@ -2,9 +2,6 @@ package model
 
 import "github.com/MaroonRides/api/internal/db/sync"
 
-// RouteScope splits a stream by route, so a client can keep only the routes it wants offline.
-const RouteScope = "routeId"
-
 var SyncTables = []sync.Table{
 	sync.For[Route, RouteAudit]("routeId"),
 	sync.For[Direction, DirectionAudit]("directionId"),
@@ -12,7 +9,7 @@ var SyncTables = []sync.Table{
 	sync.For[DirectionStop, DirectionStopAudit]("directionStopId"),
 	sync.For[Alert, AlertAudit]("alertId"),
 	sync.For[AlertDirection, AlertDirectionAudit]("alertDirectionId"),
-	sync.For[Timetable, TimetableAudit]("timetableId").ScopedBy(RouteScope),
+	sync.For[Timetable, TimetableAudit]("timetableId"),
 }
 
 var ServerTables = []any{

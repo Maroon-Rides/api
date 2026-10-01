@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-fuego/fuego"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/uptrace/bun"
@@ -86,22 +87,23 @@ var _ = Describe("SyncController", Label("medium", "controller"), func() {
 		Expect(lines[2].Data).To(BeEmpty())
 	})
 
-	It("streams timetables for the scoped routes", func() {
-		kept := test.CreateNetwork(bundb, "01")
-		test.CreateNetwork(bundb, "02")
+	It("streams the timetables of every route", func() {
+		first := test.CreateNetwork(bundb, "01")
+		second := test.CreateNetwork(bundb, "02")
 		time.Sleep(2 * repositories.NowIDLag)
 
-		res := post(fmt.Sprintf(`{"protocol":1,"types":["TimetablesV1"],"scopes":[{"type":"OfflineRoutesV1","ids":[%q]}],"acks":[]}`, kept.Route.ID))
+		res := post(`{"protocol":1,"types":["TimetablesV1"],"acks":[]}`)
 
 		Expect(res.Code).To(Equal(http.StatusOK), res.Body.String())
 		lines := readLines(res.Body)
-		Expect(lines).To(HaveLen(2))
-		Expect(lines[0].Ack).To(HavePrefix("TimetableV1:" + kept.Route.ID.String() + "|"))
-		Expect(lines[0].Data).To(HaveKeyWithValue("id", kept.Timetable.ID.String()))
+		Expect(lines).To(HaveLen(3))
+		Expect(lines[0].Ack).To(HavePrefix("TimetableV1|"))
+		Expect(lines[0].Data).To(HaveKeyWithValue("id", first.Timetable.ID.String()))
+		Expect(lines[1].Data).To(HaveKeyWithValue("id", second.Timetable.ID.String()))
 	})
 
-	It("rejects an unknown scope type", func() {
-		res := post(`{"protocol":1,"types":["TimetablesV1"],"scopes":[{"type":"Stop","ids":[]}]}`)
+	It("rejects an ack from before scopes were removed", func() {
+		res := post(fmt.Sprintf(`{"protocol":1,"types":["TimetablesV1"],"acks":["TimetableV1:%s|%s"]}`, uuid.New(), uuid.Must(uuid.NewV7())))
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest), res.Body.String())
 	})

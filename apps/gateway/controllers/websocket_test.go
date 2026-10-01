@@ -53,28 +53,16 @@ var _ = Describe("WebsocketController origins", Label("unit"), func() {
 		url = "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/api/ws"
 	})
 
-	dial := func(origin string) (*http.Response, error) {
-		conn, res, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {origin}})
-		if conn != nil {
-			DeferCleanup(conn.Close)
-		}
-		return res, err
-	}
-
-	DescribeTable("accepts the app's webview origins",
+	DescribeTable("accepts any origin",
 		func(origin string) {
-			_, err := dial(origin)
+			conn, _, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {origin}})
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(conn.Close)
 		},
-		Entry("iOS", "capacitor://localhost"),
-		Entry("Android", "https://localhost"),
+		Entry("iOS app", "capacitor://localhost"),
+		Entry("Android app", "https://localhost"),
+		Entry("Vite dev server", "http://100.89.139.58:5173"),
 	)
-
-	It("refuses any other origin", func() {
-		res, err := dial("https://example.com")
-		Expect(err).To(MatchError(websocket.ErrBadHandshake))
-		Expect(res.StatusCode).To(Equal(http.StatusForbidden))
-	})
 })
 
 var _ = Describe("websocket client", Label("unit"), func() {

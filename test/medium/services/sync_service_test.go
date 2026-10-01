@@ -31,35 +31,23 @@ var (
 	}
 )
 
-// syncClient behaves like the app: it sends every ack it holds and keeps the newest one per key.
+// syncClient behaves like the app: it sends every ack it holds and keeps the newest one per entity type.
 type syncClient struct {
-	svc           *services.SyncService
-	acks          map[services.SyncAckKey]string
-	offlineRoutes []uuid.UUID
+	svc  *services.SyncService
+	acks map[dtos.SyncEntityType]string
 }
 
 func newSyncClient(bundb *bun.DB) *syncClient {
 	return &syncClient{
 		svc:  services.NewSyncService(repositories.NewSyncRepository(bundb)),
-		acks: map[services.SyncAckKey]string{},
+		acks: map[dtos.SyncEntityType]string{},
 	}
-}
-
-func (c *syncClient) keepOffline(routeIDs ...uuid.UUID) {
-	c.offlineRoutes = append(c.offlineRoutes, routeIDs...)
-}
-
-// dropOffline forgets a route's acks along with the route, as the app does when it deletes that route's rows.
-func (c *syncClient) dropOffline(routeID uuid.UUID) {
-	c.offlineRoutes = slices.DeleteFunc(c.offlineRoutes, func(id uuid.UUID) bool { return id == routeID })
-	maps.DeleteFunc(c.acks, func(key services.SyncAckKey, _ string) bool { return key.Scope == routeID })
 }
 
 func (c *syncClient) request(types ...dtos.SyncRequestType) dtos.SyncRequest {
 	return dtos.SyncRequest{
 		Protocol: dtos.SyncProtocolVersions.V1,
 		Types:    types,
-		Scopes:   []dtos.SyncScope{{Type: dtos.SyncScopeTypes.OfflineRoutesV1, IDs: c.offlineRoutes}},
 		Acks:     c.storedAcks(),
 	}
 }
@@ -67,9 +55,9 @@ func (c *syncClient) request(types ...dtos.SyncRequestType) dtos.SyncRequest {
 func (c *syncClient) sync(types ...dtos.SyncRequestType) []dtos.SyncStreamLine {
 	lines := c.stream(c.request(types...))
 	for _, line := range lines {
-		key, _, err := services.ParseAck(line.Ack)
+		entity, _, err := services.ParseAck(line.Ack)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "the server sent a bad ack")
-		c.acks[key] = line.Ack
+		c.acks[entity] = line.Ack
 	}
 	return lines
 }
@@ -95,7 +83,7 @@ func (c *syncClient) storedAcks() []string {
 
 // completeAck stands in for the ack of a sync that just finished.
 func completeAck(bundb *bun.DB) string {
-	return services.FormatAck(services.SyncAckKey{Entity: entities.SyncCompleteV1}, test.UUIDv7Ago(bundb, 0))
+	return services.FormatAck(entities.SyncCompleteV1, test.UUIDv7Ago(bundb, 0))
 }
 
 func setResetBefore(bundb *bun.DB, id uuid.UUID) {
@@ -130,7 +118,6 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 
 		BeforeEach(func() {
 			network = test.CreateNetwork(bundb, "01")
-			client.keepOffline(network.Route.ID)
 		})
 
 		It("sends every requested table, parents first, then completes", func() {
@@ -171,7 +158,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		It("acks each row with its update id", func() {
 			lines := client.sync(requests.RoutesV1)
 
-			Expect(lines[0].Ack).To(Equal(services.FormatAck(services.SyncAckKey{Entity: entities.RouteV1}, network.Route.UpdateID)))
+			Expect(lines[0].Ack).To(Equal(services.FormatAck(entities.RouteV1, network.Route.UpdateID)))
 		})
 
 		It("sends only the requested types, in server order", func() {
@@ -194,7 +181,6 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 
 		BeforeEach(func() {
 			first = test.CreateNetwork(bundb, "01")
-			client.keepOffline(first.Route.ID)
 			client.sync(allTypes...)
 		})
 
@@ -205,7 +191,6 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		It("sends only changed and new rows", func() {
 			test.Exec(bundb, `UPDATE "route" SET "longName" = 'Renamed' WHERE "id" = ?`, first.Route.ID)
 			second := test.CreateNetwork(bundb, "02")
-			client.keepOffline(second.Route.ID)
 
 			lines := client.sync(allTypes...)
 
@@ -226,7 +211,6 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		It("sends deletes before upserts, including cascades", func() {
 			test.Exec(bundb, `DELETE FROM "route" WHERE "id" = ?`, first.Route.ID)
 			kept := test.CreateNetwork(bundb, "02")
-			client.keepOffline(kept.Route.ID)
 
 			lines := client.sync(requests.RoutesV1, requests.DirectionsV1, requests.TimetablesV1)
 
@@ -287,7 +271,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.stream(dtos.SyncRequest{
 				Protocol: dtos.SyncProtocolVersions.V1,
 				Types:    []dtos.SyncRequestType{requests.RoutesV1, requests.StopsV1},
-				Acks:     []string{services.FormatAck(services.SyncAckKey{Entity: entities.StopV1}, network.Stop.UpdateID), completeAck(bundb)},
+				Acks:     []string{services.FormatAck(entities.StopV1, network.Stop.UpdateID), completeAck(bundb)},
 			})
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV1, entities.SyncCompleteV1}))
@@ -299,8 +283,8 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 				Protocol: dtos.SyncProtocolVersions.V1,
 				Types:    []dtos.SyncRequestType{requests.RoutesV1},
 				Acks: []string{
-					services.FormatAck(services.SyncAckKey{Entity: entities.RouteV1}, network.Route.UpdateID),
-					services.FormatAck(services.SyncAckKey{Entity: entities.RouteV1}, older),
+					services.FormatAck(entities.RouteV1, network.Route.UpdateID),
+					services.FormatAck(entities.RouteV1, older),
 					completeAck(bundb),
 				},
 			})
@@ -320,7 +304,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.stream(dtos.SyncRequest{
 				Protocol: dtos.SyncProtocolVersions.V1,
 				Types:    allTypes,
-				Acks:     []string{services.FormatAck(services.SyncAckKey{Entity: entities.SyncCompleteV1}, stale)},
+				Acks:     []string{services.FormatAck(entities.SyncCompleteV1, stale)},
 			})
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.SyncResetV1}))
@@ -333,7 +317,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.stream(dtos.SyncRequest{
 				Protocol: dtos.SyncProtocolVersions.V1,
 				Types:    []dtos.SyncRequestType{requests.RoutesV1},
-				Acks:     []string{services.FormatAck(services.SyncAckKey{Entity: entities.RouteV1}, network.Route.UpdateID)},
+				Acks:     []string{services.FormatAck(entities.RouteV1, network.Route.UpdateID)},
 			})
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.SyncResetV1}))
@@ -360,9 +344,9 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 				setResetBefore(bundb, test.UUIDv7Ago(bundb, 0))
 				Expect(types(client.sync(allTypes...))).To(Equal([]dtos.SyncEntityType{entities.SyncResetV1}))
 
-				client.acks = map[services.SyncAckKey]string{}
+				client.acks = map[dtos.SyncEntityType]string{}
 				client.sync(allTypes...)
-				routeAck := client.acks[services.SyncAckKey{Entity: entities.RouteV1}]
+				routeAck := client.acks[entities.RouteV1]
 				_, routeID, err := services.ParseAck(routeAck)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -387,7 +371,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.stream(dtos.SyncRequest{
 				Protocol: dtos.SyncProtocolVersions.V1,
 				Types:    []dtos.SyncRequestType{requests.RoutesV1},
-				Acks:     []string{services.FormatAck(services.SyncAckKey{Entity: entities.SyncCompleteV1}, recent)},
+				Acks:     []string{services.FormatAck(entities.SyncCompleteV1, recent)},
 			})
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV1, entities.SyncCompleteV1}))
@@ -420,7 +404,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			client.sync(requests.RoutesV1)
 			test.Exec(bundb, `DELETE FROM "route" WHERE "id" = ?`, deleted.Route.ID)
 			client.sync(requests.RoutesV1)
-			Expect(client.acks).To(HaveKey(services.SyncAckKey{Entity: entities.RouteDeleteV1}))
+			Expect(client.acks).To(HaveKey(entities.RouteDeleteV1))
 
 			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{routesV2}, Acks: client.storedAcks()})
 

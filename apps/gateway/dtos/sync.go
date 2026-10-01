@@ -1,10 +1,6 @@
 package dtos
 
-import (
-	"github.com/google/uuid"
-
-	"github.com/MaroonRides/api/internal/enum"
-)
+import "github.com/MaroonRides/api/internal/enum"
 
 type SyncRequestType string
 
@@ -70,23 +66,6 @@ var SyncEntityTypes = struct {
 
 func (SyncEntityType) EnumValues() []any { return enum.Values(SyncEntityTypes) }
 
-type SyncScopeType string
-
-var SyncScopeTypes = struct {
-	OfflineRoutesV1 SyncScopeType
-}{
-	OfflineRoutesV1: "OfflineRoutesV1",
-}
-
-func (SyncScopeType) EnumValues() []any { return enum.Values(SyncScopeTypes) }
-
-// SyncScope picks which rows of a scoped stream a client holds. A scoped stream
-// sends nothing for a scope type the request leaves out.
-type SyncScope struct {
-	Type SyncScopeType `json:"type"`
-	IDs  []uuid.UUID   `json:"ids"`
-}
-
 // SyncProtocolVersion names the control lines and ack rules a client understands.
 type SyncProtocolVersion int
 
@@ -101,7 +80,6 @@ func (SyncProtocolVersion) EnumValues() []any { return enum.Values(SyncProtocolV
 type SyncRequest struct {
 	Protocol SyncProtocolVersion `json:"protocol"`
 	Types    []SyncRequestType   `json:"types"`
-	Scopes   []SyncScope         `json:"scopes"`
 	Acks     []string            `json:"acks"`
 }
 

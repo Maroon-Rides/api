@@ -29,5 +29,4 @@ type TimetableAudit struct {
 	sync.Tombstone
 
 	TimetableID uuid.UUID `bun:"timetableId,type:uuid,notnull"`
-	RouteID     uuid.UUID `bun:"routeId,type:uuid,notnull"`
 }

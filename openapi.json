@@ -562,15 +562,6 @@
 					"protocol": {
 						"$ref": "#/components/schemas/SyncProtocolVersion"
 					},
-					"scopes": {
-						"items": {
-							"$ref": "#/components/schemas/SyncScope"
-						},
-						"type": [
-							"array",
-							"null"
-						]
-					},
 					"types": {
 						"items": {
 							"$ref": "#/components/schemas/SyncRequestType"
@@ -584,7 +575,6 @@
 				"required": [
 					"acks",
 					"protocol",
-					"scopes",
 					"types"
 				],
 				"type": "object"
@@ -669,34 +659,6 @@
 					"shortName"
 				],
 				"type": "object"
-			},
-			"SyncScope": {
-				"properties": {
-					"ids": {
-						"items": {
-							"format": "uuid",
-							"type": "string"
-						},
-						"type": [
-							"array",
-							"null"
-						]
-					},
-					"type": {
-						"$ref": "#/components/schemas/SyncScopeType"
-					}
-				},
-				"required": [
-					"ids",
-					"type"
-				],
-				"type": "object"
-			},
-			"SyncScopeType": {
-				"enum": [
-					"OfflineRoutesV1"
-				],
-				"type": "string"
 			},
 			"SyncStopDeleteV1": {
 				"description": "SyncStopDeleteV1 schema",

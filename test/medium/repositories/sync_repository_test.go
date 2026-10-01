@@ -79,35 +79,35 @@ var _ = Describe("SyncRepository", Label("medium", "repository"), func() {
 		})
 
 		It("reads from the beginning up to the bound", func() {
-			got := collect(repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, uuid.Nil, bound))
+			got := collect(repositories.Upserts[model.Route](ctx, repo, uuid.Nil, bound))
 			Expect(routeIDs(got)).To(Equal([]uuid.UUID{first.ID, second.ID}))
 		})
 
 		It("treats after as exclusive", func() {
-			got := collect(repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, first.UpdateID, bound))
+			got := collect(repositories.Upserts[model.Route](ctx, repo, first.UpdateID, bound))
 			Expect(routeIDs(got)).To(Equal([]uuid.UUID{second.ID}))
 		})
 
 		It("reads nothing after the last row", func() {
-			Expect(collect(repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, second.UpdateID, bound))).To(BeEmpty())
+			Expect(collect(repositories.Upserts[model.Route](ctx, repo, second.UpdateID, bound))).To(BeEmpty())
 		})
 
 		It("orders by update, not insert", func() {
 			test.Exec(bundb, `UPDATE "route" SET "longName" = 'Renamed' WHERE "id" = ?`, first.ID)
 
-			got := collect(repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
+			got := collect(repositories.Upserts[model.Route](ctx, repo, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
 			Expect(got).To(HaveLen(3))
 			Expect(got[2].ID).To(Equal(first.ID))
 			Expect(got[2].LongName).To(Equal("Renamed"))
 		})
 
 		It("stops querying when the caller stops reading", func() {
-			for _, err := range repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, uuid.Nil, bound) {
+			for _, err := range repositories.Upserts[model.Route](ctx, repo, uuid.Nil, bound) {
 				Expect(err).NotTo(HaveOccurred())
 				break
 			}
 
-			Expect(collect(repositories.Upserts[model.Route](ctx, repo, repositories.Scope{}, uuid.Nil, bound))).To(HaveLen(2))
+			Expect(collect(repositories.Upserts[model.Route](ctx, repo, uuid.Nil, bound))).To(HaveLen(2))
 		})
 
 		It("yields the query error", func() {
@@ -115,7 +115,7 @@ var _ = Describe("SyncRepository", Label("medium", "repository"), func() {
 			cancel()
 
 			var errs []error
-			for _, err := range repositories.Upserts[model.Route](cancelled, repo, repositories.Scope{}, uuid.Nil, bound) {
+			for _, err := range repositories.Upserts[model.Route](cancelled, repo, uuid.Nil, bound) {
 				errs = append(errs, err)
 			}
 			Expect(errs).To(HaveLen(1))
@@ -132,22 +132,22 @@ var _ = Describe("SyncRepository", Label("medium", "repository"), func() {
 		})
 
 		It("reads the tombstone of a deleted row", func() {
-			got := collect(repositories.Deletes[model.RouteAudit](ctx, repo, repositories.Scope{}, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
+			got := collect(repositories.Deletes[model.RouteAudit](ctx, repo, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
 			Expect(got).To(HaveLen(1))
 			Expect(got[0].RouteID).To(Equal(network.Route.ID))
 		})
 
 		It("reads tombstones left by a cascade", func() {
-			got := collect(repositories.Deletes[model.DirectionAudit](ctx, repo, repositories.Scope{}, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
+			got := collect(repositories.Deletes[model.DirectionAudit](ctx, repo, uuid.Nil, test.UUIDv7Ago(bundb, 0)))
 			Expect(got).To(HaveLen(1))
 			Expect(got[0].DirectionID).To(Equal(network.Direction.ID))
 		})
 
 		It("treats after as exclusive", func() {
 			bound := test.UUIDv7Ago(bundb, 0)
-			tombstone := collect(repositories.Deletes[model.RouteAudit](ctx, repo, repositories.Scope{}, uuid.Nil, bound))[0]
+			tombstone := collect(repositories.Deletes[model.RouteAudit](ctx, repo, uuid.Nil, bound))[0]
 
-			Expect(collect(repositories.Deletes[model.RouteAudit](ctx, repo, repositories.Scope{}, tombstone.ID, bound))).To(BeEmpty())
+			Expect(collect(repositories.Deletes[model.RouteAudit](ctx, repo, tombstone.ID, bound))).To(BeEmpty())
 		})
 	})
 })

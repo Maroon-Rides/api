@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,9 +51,6 @@ type Table struct {
 	Synced     []string
 	Model      any
 	AuditModel any
-
-	// Scope names a column on both tables that splits the stream into one partition per value.
-	Scope string
 }
 
 var (
@@ -93,21 +89,6 @@ func For[M, A any](auditKey string) Table {
 			panic(fmt.Sprintf("sync: %q is not a plain identifier", name))
 		}
 	}
-	return t
-}
-
-// ScopedBy splits the table's stream by column. A row never changes scope, since
-// clients of the old scope would never hear that it left.
-func (t Table) ScopedBy(column string) Table {
-	for _, model := range []any{t.Model, t.AuditModel} {
-		if _, ok := describe(model).FieldMap[column]; !ok {
-			panic(fmt.Sprintf("sync: %T has no scope column %q", model, column))
-		}
-	}
-	if !slices.Contains(t.Synced, column) {
-		panic(fmt.Sprintf("sync: %s tags its scope column %q %q", t.Name, column, NoSync))
-	}
-	t.Scope = column
 	return t
 }
 

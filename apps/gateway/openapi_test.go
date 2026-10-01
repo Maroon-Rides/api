@@ -50,7 +50,6 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 		},
 		Entry("request types", "SyncRequestType", dtos.SyncRequestType("").EnumValues()),
 		Entry("entity types", "SyncEntityType", dtos.SyncEntityType("").EnumValues()),
-		Entry("scope types", "SyncScopeType", dtos.SyncScopeType("").EnumValues()),
 	)
 
 	It("refers to the request type enum from the request body", func() {
