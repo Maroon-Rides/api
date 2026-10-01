@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
+	"github.com/google/uuid"
 	"go.uber.org/fx"
 )
 
@@ -29,11 +30,17 @@ type Scheduler struct {
 	jobs map[string]scheduledJob
 }
 
-func jobOptions() []gocron.JobOption {
+func jobOptions(name string) []gocron.JobOption {
 	return []gocron.JobOption{
+		gocron.WithName(name),
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 		gocron.WithStartAt(gocron.WithStartImmediately()),
+		gocron.WithEventListeners(gocron.AfterJobRunsWithError(logJobFailure)),
 	}
+}
+
+func logJobFailure(_ uuid.UUID, name string, err error) {
+	slog.Error("Job failed", "job", name, "error", err)
 }
 
 func NewScheduler(location *time.Location) (*Scheduler, error) {
@@ -60,7 +67,7 @@ func (s *Scheduler) Register(jobs []Job) error {
 		handle, err := s.Scheduler.NewJob(
 			job.Schedule,
 			gocron.NewTask(job.Task),
-			jobOptions()...,
+			jobOptions(job.Name)...,
 		)
 		if err != nil {
 			return fmt.Errorf("scheduling job %q: %w", job.Name, err)
@@ -86,7 +93,7 @@ func (s *Scheduler) RunNow(name string) error {
 		scheduled.handle.ID(),
 		scheduled.job.Schedule,
 		gocron.NewTask(scheduled.job.Task),
-		jobOptions()...,
+		jobOptions(scheduled.job.Name)...,
 	)
 	if err != nil {
 		return fmt.Errorf("rescheduling job %q: %w", name, err)

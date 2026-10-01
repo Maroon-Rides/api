@@ -1,8 +1,6 @@
 package jobs
 
 import (
-	"context"
-	"log/slog"
 	"time"
 
 	"github.com/MaroonRides/api/apps/requester/services"
@@ -12,13 +10,7 @@ import (
 
 func NewDepartureTimesJob(service *services.LiveDataService) Job {
 	return Job{
-		Task: func(ctx context.Context) error {
-			if err := service.SyncSubscribedDepartures(ctx); err != nil {
-				slog.Error("Failed to sync departure times", "error", err)
-			}
-
-			return nil
-		},
+		Task:     service.SyncSubscribedDepartures,
 		Schedule: gocron.DurationJob(30 * time.Second),
 		Name:     JobDepartureTimes,
 	}

@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -15,20 +16,15 @@ func NewRouteKeysJob(service *services.RouteDataService, scheduler *Scheduler) J
 		Task: func(ctx context.Context) error {
 			synced, err := service.RouteKeysSynced(ctx)
 			if err != nil {
-				slog.Error("Failed to check route keys", "error", err)
-				return nil
+				return err
 			}
-
 			if synced {
 				return nil
 			}
-
 			slog.Warn("Route or direction keys have changed, triggering refresh of data.")
-
 			if err := scheduler.RunNow(JobRouteData); err != nil {
-				slog.Error("Failed to trigger route data refresh", "error", err)
+				return fmt.Errorf("triggering route data refresh: %w", err)
 			}
-
 			return nil
 		},
 		Schedule: gocron.DurationJob(30 * time.Second),

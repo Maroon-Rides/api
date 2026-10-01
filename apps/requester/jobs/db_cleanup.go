@@ -1,8 +1,6 @@
 package jobs
 
 import (
-	"context"
-	"log/slog"
 	"time"
 
 	"github.com/MaroonRides/api/apps/requester/services"
@@ -12,14 +10,7 @@ import (
 
 func NewDatabaseCleanupJob(service *services.DatabaseCleanupService) Job {
 	return Job{
-		Task: func(ctx context.Context) error {
-			err := service.Cleanup(ctx)
-			if err != nil {
-				slog.Error("Failed to clean up database", "error", err)
-			}
-
-			return err
-		},
+		Task:     service.Cleanup,
 		Schedule: gocron.DurationJob(12 * time.Hour),
 		Name:     JobDatabaseCleanup,
 	}
