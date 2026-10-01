@@ -39,7 +39,7 @@ dockers_v2:
     ids: [gateway]
     dockerfile: apps/gateway/Dockerfile
     images: [ghcr.io/maroon-rides/api-gateway]
-    tags: ["{{ .Version }}", latest]
+    tags: ["{{ .Version }}", "{{ .ShortCommit }}", latest]
     platforms: [linux/amd64, linux/arm64]
     labels:
       org.opencontainers.image.source: "{{ .GitURL }}"
@@ -49,7 +49,7 @@ dockers_v2:
     ids: [requester]
     dockerfile: apps/requester/Dockerfile
     images: [ghcr.io/maroon-rides/api-requester]
-    tags: ["{{ .Version }}", latest]
+    tags: ["{{ .Version }}", "{{ .ShortCommit }}", latest]
     platforms: [linux/amd64, linux/arm64]
     labels:
       org.opencontainers.image.source: "{{ .GitURL }}"
