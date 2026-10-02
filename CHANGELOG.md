@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/Maroon-Rides/api/compare/v1.2.0...v1.2.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* unique stops per direction ([6f97ea2](https://github.com/Maroon-Rides/api/commit/6f97ea233376494a22235fb7adb6442767fa14a0))
+
 ## [1.2.0](https://github.com/Maroon-Rides/api/compare/v1.1.0...v1.2.0) (2026-10-01)
 
 
