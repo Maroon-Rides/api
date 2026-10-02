@@ -115,7 +115,7 @@ var _ = Describe("LiveDataService departures", func() {
 
 		a = test.CreateNetwork(bundb, "a")
 		b = test.CreateNetwork(bundb, "b")
-		test.Insert(bundb, &model.DirectionStop{DirectionID: b.Direction.ID, StopID: a.Stop.ID, Sequence: 2})
+		test.Insert(bundb, &model.Stop{DirectionID: b.Direction.ID, SourceID: a.Stop.SourceID, Name: a.Stop.Name, Amenities: []string{}, Sequence: 2})
 		sharedID = a.Stop.SourceID
 	})
 

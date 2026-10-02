@@ -16,8 +16,6 @@ var SyncPayloads = map[SyncEntityType]any{
 	SyncEntityTypes.DirectionDeleteV1:      SyncDirectionDeleteV1{},
 	SyncEntityTypes.StopV1:                 SyncStopV1{},
 	SyncEntityTypes.StopDeleteV1:           SyncStopDeleteV1{},
-	SyncEntityTypes.DirectionStopV1:        SyncDirectionStopV1{},
-	SyncEntityTypes.DirectionStopDeleteV1:  SyncDirectionStopDeleteV1{},
 	SyncEntityTypes.AlertV1:                SyncAlertV1{},
 	SyncEntityTypes.AlertDeleteV1:          SyncAlertDeleteV1{},
 	SyncEntityTypes.AlertDirectionV1:       SyncAlertDirectionV1{},
@@ -89,20 +87,26 @@ func NewSyncDirectionDeleteV1(a model.DirectionAudit) SyncDirectionDeleteV1 {
 }
 
 type SyncStopV1 struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Lat       float64   `json:"lat"`
-	Lon       float64   `json:"lon"`
-	Amenities []string  `json:"amenities"`
+	ID          uuid.UUID `json:"id"`
+	DirectionID uuid.UUID `json:"directionId"`
+	Name        string    `json:"name"`
+	Lat         float64   `json:"lat"`
+	Lon         float64   `json:"lon"`
+	Amenities   []string  `json:"amenities"`
+	Sequence    int       `json:"sequence"`
+	IsTimepoint bool      `json:"isTimepoint"`
 }
 
 func NewSyncStopV1(s model.Stop) SyncStopV1 {
 	return SyncStopV1{
-		ID:        s.ID,
-		Name:      s.Name,
-		Lat:       s.Lat,
-		Lon:       s.Lon,
-		Amenities: s.Amenities,
+		ID:          s.ID,
+		DirectionID: s.DirectionID,
+		Name:        s.Name,
+		Lat:         s.Lat,
+		Lon:         s.Lon,
+		Amenities:   s.Amenities,
+		Sequence:    s.Sequence,
+		IsTimepoint: s.IsTimepoint,
 	}
 }
 
@@ -112,32 +116,6 @@ type SyncStopDeleteV1 struct {
 
 func NewSyncStopDeleteV1(a model.StopAudit) SyncStopDeleteV1 {
 	return SyncStopDeleteV1{StopID: a.StopID}
-}
-
-type SyncDirectionStopV1 struct {
-	ID          uuid.UUID `json:"id"`
-	DirectionID uuid.UUID `json:"directionId"`
-	StopID      uuid.UUID `json:"stopId"`
-	Sequence    int       `json:"sequence"`
-	IsTimepoint bool      `json:"isTimepoint"`
-}
-
-func NewSyncDirectionStopV1(ds model.DirectionStop) SyncDirectionStopV1 {
-	return SyncDirectionStopV1{
-		ID:          ds.ID,
-		DirectionID: ds.DirectionID,
-		StopID:      ds.StopID,
-		Sequence:    ds.Sequence,
-		IsTimepoint: ds.IsTimepoint,
-	}
-}
-
-type SyncDirectionStopDeleteV1 struct {
-	DirectionStopID uuid.UUID `json:"directionStopId"`
-}
-
-func NewSyncDirectionStopDeleteV1(a model.DirectionStopAudit) SyncDirectionStopDeleteV1 {
-	return SyncDirectionStopDeleteV1{DirectionStopID: a.DirectionStopID}
 }
 
 type SyncAlertV1 struct {
@@ -197,7 +175,6 @@ func NewSyncAlertDirectionDeleteV1(a model.AlertDirectionAudit) SyncAlertDirecti
 type SyncTimetableV1 struct {
 	ID          uuid.UUID   `json:"id"`
 	StopID      uuid.UUID   `json:"stopId"`
-	DirectionID uuid.UUID   `json:"directionId"`
 	ServiceDate string      `json:"serviceDate" format:"date"`
 	Departures  []time.Time `json:"departures"`
 }
@@ -206,7 +183,6 @@ func NewSyncTimetableV1(t model.Timetable) SyncTimetableV1 {
 	return SyncTimetableV1{
 		ID:          t.ID,
 		StopID:      t.StopID,
-		DirectionID: t.DirectionID,
 		ServiceDate: t.ServiceDate.Format(serviceDateLayout),
 		Departures:  t.Departures,
 	}

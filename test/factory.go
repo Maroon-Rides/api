@@ -16,7 +16,6 @@ type Network struct {
 	Route          model.Route
 	Direction      model.Direction
 	Stop           model.Stop
-	DirectionStop  model.DirectionStop
 	Alert          model.Alert
 	AlertDirection model.AlertDirection
 	Timetable      model.Timetable
@@ -33,13 +32,6 @@ func CreateNetwork(bundb *bun.DB, name string) Network {
 			DarkColor:  "#ffffff",
 			Active:     true,
 		},
-		Stop: model.Stop{
-			SourceID:  "stop-" + name,
-			Name:      "Stop " + name,
-			Lat:       30.6187,
-			Lon:       -96.3365,
-			Amenities: []string{"shelter"},
-		},
 		Alert: model.Alert{
 			SourceID:       "alert-" + name,
 			Title:          "Detour " + name,
@@ -51,7 +43,6 @@ func CreateNetwork(bundb *bun.DB, name string) Network {
 		},
 	}
 	Insert(bundb, &n.Route)
-	Insert(bundb, &n.Stop)
 	Insert(bundb, &n.Alert)
 
 	n.Direction = model.Direction{
@@ -63,24 +54,27 @@ func CreateNetwork(bundb *bun.DB, name string) Network {
 	}
 	Insert(bundb, &n.Direction)
 
-	n.DirectionStop = model.DirectionStop{
+	n.Stop = model.Stop{
 		DirectionID: n.Direction.ID,
-		StopID:      n.Stop.ID,
+		SourceID:    "stop-" + name,
+		Name:        "Stop " + name,
+		Lat:         30.6187,
+		Lon:         -96.3365,
+		Amenities:   []string{"shelter"},
 		Sequence:    1,
 		IsTimepoint: true,
 	}
+	Insert(bundb, &n.Stop)
+
 	n.AlertDirection = model.AlertDirection{AlertID: n.Alert.ID, DirectionID: n.Direction.ID}
 	n.Timetable = model.Timetable{
 		StopID:      n.Stop.ID,
-		DirectionID: n.Direction.ID,
-		RouteID:     n.Route.ID,
 		ServiceDate: time.Date(2026, 9, 27, 0, 0, 0, 0, time.UTC),
 		Departures: []time.Time{
 			time.Date(2026, 9, 27, 14, 30, 0, 0, time.UTC),
 			time.Date(2026, 9, 27, 14, 45, 0, 0, time.UTC),
 		},
 	}
-	Insert(bundb, &n.DirectionStop)
 	Insert(bundb, &n.AlertDirection)
 	Insert(bundb, &n.Timetable)
 

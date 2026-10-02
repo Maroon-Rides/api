@@ -101,46 +101,6 @@
 				],
 				"type": "object"
 			},
-			"DirectionStopDeleteV1Line": {
-				"properties": {
-					"ack": {
-						"type": "string"
-					},
-					"data": {
-						"$ref": "#/components/schemas/SyncDirectionStopDeleteV1"
-					},
-					"type": {
-						"const": "DirectionStopDeleteV1",
-						"type": "string"
-					}
-				},
-				"required": [
-					"type",
-					"ack",
-					"data"
-				],
-				"type": "object"
-			},
-			"DirectionStopV1Line": {
-				"properties": {
-					"ack": {
-						"type": "string"
-					},
-					"data": {
-						"$ref": "#/components/schemas/SyncDirectionStopV1"
-					},
-					"type": {
-						"const": "DirectionStopV1",
-						"type": "string"
-					}
-				},
-				"required": [
-					"type",
-					"ack",
-					"data"
-				],
-				"type": "object"
-			},
 			"DirectionV1Line": {
 				"properties": {
 					"ack": {
@@ -444,50 +404,6 @@
 				],
 				"type": "object"
 			},
-			"SyncDirectionStopDeleteV1": {
-				"description": "SyncDirectionStopDeleteV1 schema",
-				"properties": {
-					"directionStopId": {
-						"format": "uuid",
-						"type": "string"
-					}
-				},
-				"required": [
-					"directionStopId"
-				],
-				"type": "object"
-			},
-			"SyncDirectionStopV1": {
-				"description": "SyncDirectionStopV1 schema",
-				"properties": {
-					"directionId": {
-						"format": "uuid",
-						"type": "string"
-					},
-					"id": {
-						"format": "uuid",
-						"type": "string"
-					},
-					"isTimepoint": {
-						"type": "boolean"
-					},
-					"sequence": {
-						"type": "integer"
-					},
-					"stopId": {
-						"format": "uuid",
-						"type": "string"
-					}
-				},
-				"required": [
-					"directionId",
-					"id",
-					"isTimepoint",
-					"sequence",
-					"stopId"
-				],
-				"type": "object"
-			},
 			"SyncDirectionV1": {
 				"description": "SyncDirectionV1 schema",
 				"properties": {
@@ -527,8 +443,6 @@
 					"DirectionDeleteV1",
 					"StopV1",
 					"StopDeleteV1",
-					"DirectionStopV1",
-					"DirectionStopDeleteV1",
 					"AlertV1",
 					"AlertDeleteV1",
 					"AlertDirectionV1",
@@ -584,7 +498,6 @@
 					"RoutesV1",
 					"DirectionsV1",
 					"StopsV1",
-					"DirectionStopsV1",
 					"AlertsV1",
 					"AlertDirectionsV1",
 					"TimetablesV1"
@@ -685,9 +598,16 @@
 							"null"
 						]
 					},
+					"directionId": {
+						"format": "uuid",
+						"type": "string"
+					},
 					"id": {
 						"format": "uuid",
 						"type": "string"
+					},
+					"isTimepoint": {
+						"type": "boolean"
 					},
 					"lat": {
 						"format": "double",
@@ -699,14 +619,20 @@
 					},
 					"name": {
 						"type": "string"
+					},
+					"sequence": {
+						"type": "integer"
 					}
 				},
 				"required": [
 					"amenities",
+					"directionId",
 					"id",
+					"isTimepoint",
 					"lat",
 					"lon",
-					"name"
+					"name",
+					"sequence"
 				],
 				"type": "object"
 			},
@@ -718,8 +644,6 @@
 						"AlertDirectionV1": "#/components/schemas/AlertDirectionV1Line",
 						"AlertV1": "#/components/schemas/AlertV1Line",
 						"DirectionDeleteV1": "#/components/schemas/DirectionDeleteV1Line",
-						"DirectionStopDeleteV1": "#/components/schemas/DirectionStopDeleteV1Line",
-						"DirectionStopV1": "#/components/schemas/DirectionStopV1Line",
 						"DirectionV1": "#/components/schemas/DirectionV1Line",
 						"RouteDeleteV1": "#/components/schemas/RouteDeleteV1Line",
 						"RouteV1": "#/components/schemas/RouteV1Line",
@@ -750,12 +674,6 @@
 					},
 					{
 						"$ref": "#/components/schemas/StopDeleteV1Line"
-					},
-					{
-						"$ref": "#/components/schemas/DirectionStopV1Line"
-					},
-					{
-						"$ref": "#/components/schemas/DirectionStopDeleteV1Line"
 					},
 					{
 						"$ref": "#/components/schemas/AlertV1Line"
@@ -809,10 +727,6 @@
 							"null"
 						]
 					},
-					"directionId": {
-						"format": "uuid",
-						"type": "string"
-					},
 					"id": {
 						"format": "uuid",
 						"type": "string"
@@ -828,7 +742,6 @@
 				},
 				"required": [
 					"departures",
-					"directionId",
 					"id",
 					"serviceDate",
 					"stopId"

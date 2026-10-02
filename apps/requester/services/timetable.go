@@ -60,7 +60,7 @@ func (s *TimetableService) Sync(ctx context.Context) error {
 	}
 
 	index := newScheduleDirectionIndex(baseData.Routes, keyDirectionsBySource(directions))
-	stopSourceMap := lo.KeyBy(stops, func(s model.Stop) string { return s.SourceID })
+	stopsByKey := lo.KeyBy(stops, func(s model.Stop) string { return repositories.StopKey(s.DirectionID, s.SourceID) })
 	stopCodes := lo.Keys(stopDirections)
 
 	today := serviceDate(time.Now(), s.location)
@@ -69,12 +69,12 @@ func (s *TimetableService) Sync(ctx context.Context) error {
 		date := today.AddDate(0, 0, day)
 		results := fetchStopSchedules(ctx, s.api, stopCodes, date)
 
-		fetchedStopIDs := lo.FilterMap(lo.Keys(results), func(sourceID string, _ int) (uuid.UUID, bool) {
-			stop, ok := stopSourceMap[sourceID]
-			return stop.ID, ok
+		fetchedStopIDs := lo.FilterMap(stops, func(stop model.Stop, _ int) (uuid.UUID, bool) {
+			_, fetched := results[stop.SourceID]
+			return stop.ID, fetched
 		})
 
-		rows := timetableRows(results, stopSourceMap, index, date)
+		rows := timetableRows(results, stopsByKey, index, date)
 
 		if err := s.repo.SyncTimetables(ctx, date, fetchedStopIDs, rows); err != nil {
 			return fmt.Errorf("syncing timetables for %s: %w", date.Format(time.DateOnly), err)
@@ -150,27 +150,15 @@ func (index scheduleDirectionIndex) lookup(routeNumber, directionName string) (m
 	return direction, ok
 }
 
-type timetableSlot struct {
-	stopID      uuid.UUID
-	directionID uuid.UUID
-	routeID     uuid.UUID
-}
-
 func timetableRows(
 	results map[string]busapi.StopSchedulesResponse,
 	stops map[string]model.Stop,
 	index scheduleDirectionIndex,
 	date time.Time,
 ) []model.Timetable {
-	departures := map[timetableSlot][]time.Time{}
+	departures := map[uuid.UUID][]time.Time{}
 
 	for stopSourceID, response := range results {
-		stop, ok := stops[stopSourceID]
-		if !ok {
-			slog.Warn("Stop schedules name an unknown stop", "stop", stopSourceID)
-			continue
-		}
-
 		for _, schedule := range response.RouteStopSchedules {
 			if len(schedule.StopTimes) == 0 {
 				continue
@@ -182,7 +170,12 @@ func timetableRows(
 				continue
 			}
 
-			slot := timetableSlot{stopID: stop.ID, directionID: direction.ID, routeID: direction.RouteID}
+			stop, ok := stops[repositories.StopKey(direction.ID, stopSourceID)]
+			if !ok {
+				slog.Debug("Stop schedules name a stop the direction does not serve", "stop", stopSourceID, "direction", direction.SourceID)
+				continue
+			}
+
 			for _, stopTime := range schedule.StopTimes {
 				scheduledAt, err := parseUpstreamTime(stopTime.ScheduledDepartTimeUtc)
 				if err != nil {
@@ -190,17 +183,15 @@ func timetableRows(
 					continue
 				}
 
-				departures[slot] = append(departures[slot], scheduledAt)
+				departures[stop.ID] = append(departures[stop.ID], scheduledAt)
 			}
 		}
 	}
 
-	return lo.MapToSlice(departures, func(slot timetableSlot, times []time.Time) model.Timetable {
+	return lo.MapToSlice(departures, func(stopID uuid.UUID, times []time.Time) model.Timetable {
 		slices.SortFunc(times, time.Time.Compare)
 		return model.Timetable{
-			StopID:      slot.stopID,
-			DirectionID: slot.directionID,
-			RouteID:     slot.routeID,
+			StopID:      stopID,
 			ServiceDate: date,
 			Departures:  slices.CompactFunc(times, time.Time.Equal),
 		}

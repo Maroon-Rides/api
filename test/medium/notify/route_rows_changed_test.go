@@ -107,7 +107,6 @@ var _ = Describe("route rows changed triggers", Label("medium", "notify"), func(
 		test.Insert(bundb, &model.Departure{
 			RouteID:     net.Route.ID,
 			StopID:      net.Stop.ID,
-			DirectionID: net.Direction.ID,
 			ScheduledAt: time.Date(2026, 9, 29, 14, 30, 0, 0, time.UTC),
 		})
 

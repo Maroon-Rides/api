@@ -66,7 +66,6 @@ There are two enums, same as Immich.
 | `RoutesV1`          | `RouteV1`          | `RouteDeleteV1`          | `route`           |
 | `DirectionsV1`      | `DirectionV1`      | `DirectionDeleteV1`      | `direction`       |
 | `StopsV1`           | `StopV1`           | `StopDeleteV1`           | `stop`            |
-| `DirectionStopsV1`  | `DirectionStopV1`  | `DirectionStopDeleteV1`  | `direction_stop`  |
 | `AlertsV1`          | `AlertV1`          | `AlertDeleteV1`          | `alert`           |
 | `AlertDirectionsV1` | `AlertDirectionV1` | `AlertDirectionDeleteV1` | `alert_direction` |
 | `StopSchedulesV1`   | `StopScheduleV1`   | `StopScheduleDeleteV1`   | `stop_schedule`   |
@@ -105,7 +104,7 @@ The server parses the acks into a cursor keyed by entity type. It never trusts a
 
 With no ack for an entity type, its query starts from the beginning. A client with no acks at all gets a full sync. It gets no deletes that matter, because it has nothing to delete.
 
-The fixed order follows foreign keys, so parents arrive before children: routes, directions, stops, direction stops, alerts, alert directions, stop schedules. All versions of a resource sit at the same position. The order of `types` in the request does not matter.
+The fixed order follows foreign keys, so parents arrive before children: routes, directions, stops, alerts, alert directions, stop schedules. All versions of a resource sit at the same position. The order of `types` in the request does not matter.
 
 Write lines with backpressure and stop when the client disconnects, like Immich's `send`.
 

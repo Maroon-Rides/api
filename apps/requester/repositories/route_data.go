@@ -55,11 +55,10 @@ type stopDirectionSourceIDs struct {
 func (r *RouteDataRepository) GetStopDirectionSourceIDs(ctx context.Context) (map[string][]DirectionSourceIDs, error) {
 	var rows []stopDirectionSourceIDs
 	err := r.db.NewSelect().
-		TableExpr(`"direction_stop" AS ds`).
+		TableExpr(`"stop" AS s`).
 		ColumnExpr(`s."sourceId" AS "stopSourceId"`).
 		ColumnExpr(`json_agg(json_build_object('directionSourceId', d."sourceId", 'routeSourceId', r."sourceId")) AS "directions"`).
-		Join(`JOIN "stop" AS s ON s."id" = ds."stopId"`).
-		Join(`JOIN "direction" AS d ON d."id" = ds."directionId"`).
+		Join(`JOIN "direction" AS d ON d."id" = s."directionId"`).
 		Join(`JOIN "route" AS r ON r."id" = d."routeId"`).
 		Where("r.active = TRUE").
 		GroupExpr(`s."sourceId"`).
@@ -90,12 +89,11 @@ func (r *RouteDataRepository) GetDepartureTargets(ctx context.Context, routeIDs 
 
 	var targets []DepartureTarget
 	err := r.db.NewSelect().
-		TableExpr(`"direction_stop" AS ds`).
+		TableExpr(`"stop" AS s`).
 		ColumnExpr(`s."id" AS "stopId", s."sourceId" AS "stopSourceId"`).
 		ColumnExpr(`r."id" AS "routeId", r."sourceId" AS "routeSourceId"`).
 		ColumnExpr(`d."id" AS "directionId", d."sourceId" AS "directionSourceId"`).
-		Join(`JOIN "stop" AS s ON s."id" = ds."stopId"`).
-		Join(`JOIN "direction" AS d ON d."id" = ds."directionId"`).
+		Join(`JOIN "direction" AS d ON d."id" = s."directionId"`).
 		Join(`JOIN "route" AS r ON r."id" = d."routeId"`).
 		Where("r.active = TRUE").
 		Where(`r."id" IN (?)`, bun.In(routeIDs)).
@@ -156,65 +154,66 @@ func (r *RouteDataRepository) UpsertDirections(ctx context.Context, directions [
 		})
 }
 
-func (r *RouteDataRepository) UpsertStops(ctx context.Context, stops []model.Stop) (map[string]model.Stop, error) {
+// SyncStops replaces the stops of the given directions, leaving other directions untouched.
+func (r *RouteDataRepository) SyncStops(ctx context.Context, directionIDs []uuid.UUID, stops []model.Stop) error {
+	if len(directionIDs) == 0 {
+		return nil
+	}
+
 	for i := range stops {
 		if stops[i].Amenities == nil {
 			stops[i].Amenities = []string{}
 		}
 	}
 
-	return upsertAll(ctx, r.db, stops,
-		func(stop model.Stop) string { return stop.SourceID },
+	_, err := syncAll(ctx, r.db, stops,
+		func(stop model.Stop) string { return StopKey(stop.DirectionID, stop.SourceID) },
+		func(stop model.Stop) uuid.UUID { return stop.ID },
 		upsertSpec{
-			columns:  []string{"sourceId", "name", "lat", "lon", "amenities"},
-			conflict: `CONFLICT ("sourceId") DO UPDATE`,
-			set:      `"name" = EXCLUDED."name", "lat" = EXCLUDED."lat", "lon" = EXCLUDED."lon"`,
-		})
-}
-
-func (r *RouteDataRepository) UpsertDirectionStops(ctx context.Context, directionStops []model.DirectionStop) error {
-	_, err := upsertAll(ctx, r.db, directionStops,
-		func(ds model.DirectionStop) string { return ds.DirectionID.String() + ds.StopID.String() },
-		upsertSpec{
-			columns:  []string{"directionId", "stopId", "sequence"},
-			conflict: `CONFLICT ("directionId", "stopId") DO UPDATE`,
-			set:      `"sequence" = EXCLUDED."sequence"`,
-		})
+			columns:  []string{"directionId", "sourceId", "name", "lat", "lon", "amenities", "sequence"},
+			conflict: `CONFLICT ("directionId", "sourceId") DO UPDATE`,
+			set:      `"name" = EXCLUDED."name", "lat" = EXCLUDED."lat", "lon" = EXCLUDED."lon", "sequence" = EXCLUDED."sequence"`,
+		},
+		whereIn("directionId", directionIDs))
 
 	return err
 }
 
-// DirectionStopRef names a direction stop by the route short name and stop code that GTFS uses.
-type DirectionStopRef struct {
+// StopKey names a stop by the pair that is unique across stops.
+func StopKey(directionID uuid.UUID, sourceID string) string {
+	return directionID.String() + sourceID
+}
+
+// StopRef names a stop by the route short name and stop code that GTFS uses.
+type StopRef struct {
 	ID             uuid.UUID `bun:"id"`
 	RouteShortName string    `bun:"routeShortName"`
 	StopSourceID   string    `bun:"stopSourceId"`
 	IsTimepoint    bool      `bun:"isTimepoint"`
 }
 
-func (r *RouteDataRepository) GetDirectionStopRefs(ctx context.Context) ([]DirectionStopRef, error) {
-	var refs []DirectionStopRef
+func (r *RouteDataRepository) GetStopRefs(ctx context.Context) ([]StopRef, error) {
+	var refs []StopRef
 	err := r.db.NewSelect().
-		TableExpr(`"direction_stop" AS ds`).
-		ColumnExpr(`ds."id", ds."isTimepoint"`).
+		TableExpr(`"stop" AS s`).
+		ColumnExpr(`s."id", s."isTimepoint"`).
 		ColumnExpr(`r."shortName" AS "routeShortName", s."sourceId" AS "stopSourceId"`).
-		Join(`JOIN "stop" AS s ON s."id" = ds."stopId"`).
-		Join(`JOIN "direction" AS d ON d."id" = ds."directionId"`).
+		Join(`JOIN "direction" AS d ON d."id" = s."directionId"`).
 		Join(`JOIN "route" AS r ON r."id" = d."routeId"`).
 		Scan(ctx, &refs)
 
 	return refs, err
 }
 
-func (r *RouteDataRepository) SetTimepoints(ctx context.Context, directionStopIDs []uuid.UUID, isTimepoint bool) error {
-	if len(directionStopIDs) == 0 {
+func (r *RouteDataRepository) SetTimepoints(ctx context.Context, stopIDs []uuid.UUID, isTimepoint bool) error {
+	if len(stopIDs) == 0 {
 		return nil
 	}
 
 	_, err := r.db.NewUpdate().
-		Model((*model.DirectionStop)(nil)).
+		Model((*model.Stop)(nil)).
 		Set("? = ?", bun.Ident("isTimepoint"), isTimepoint).
-		Where("? IN (?)", bun.Ident("id"), bun.In(directionStopIDs)).
+		Where("? IN (?)", bun.Ident("id"), bun.In(stopIDs)).
 		Exec(ctx)
 
 	return err
@@ -313,25 +312,22 @@ func (r *RouteDataRepository) UpdateStopAmenities(ctx context.Context, amenities
 	return err
 }
 
-// SyncDepartures replaces the departures of the given routes at the given stops,
-// leaving other routes and stops that were not fetched this round untouched.
-func (r *RouteDataRepository) SyncDepartures(ctx context.Context, routeIDs []uuid.UUID, stopIDs []uuid.UUID, departures []model.Departure) error {
-	if len(routeIDs) == 0 || len(stopIDs) == 0 {
+// SyncDepartures replaces the departures at the given stops, leaving stops that
+// were not fetched this round untouched.
+func (r *RouteDataRepository) SyncDepartures(ctx context.Context, stopIDs []uuid.UUID, departures []model.Departure) error {
+	if len(stopIDs) == 0 {
 		return nil
 	}
 
 	_, err := syncAll(ctx, r.db, departures,
-		func(d model.Departure) string {
-			return d.RouteID.String() + d.StopID.String() + d.DirectionID.String() + d.ScheduledAt.String()
-		},
+		func(d model.Departure) string { return d.StopID.String() + d.ScheduledAt.String() },
 		func(d model.Departure) uuid.UUID { return d.ID },
 		upsertSpec{
-			columns:  []string{"routeId", "stopId", "directionId", "scheduledAt", "estimatedAt", "isCancelled"},
-			conflict: `CONFLICT ("routeId", "stopId", "directionId", "scheduledAt") DO UPDATE`,
+			columns:  []string{"routeId", "stopId", "scheduledAt", "estimatedAt", "isCancelled"},
+			conflict: `CONFLICT ("stopId", "scheduledAt") DO UPDATE`,
 			set:      `"estimatedAt" = EXCLUDED."estimatedAt", "isCancelled" = EXCLUDED."isCancelled"`,
 		},
-		whereIn("stopId", stopIDs),
-		whereIn("routeId", routeIDs))
+		whereIn("stopId", stopIDs))
 
 	return err
 }

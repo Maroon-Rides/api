@@ -9,6 +9,30 @@ import (
 	"github.com/MaroonRides/api/internal/db/model"
 )
 
+var _ = Describe("stopRows", Label("unit"), func() {
+	It("keeps each route's own location for a shared stop code", func() {
+		campus := model.Direction{ID: uuid.New(), SourceID: "campus"}
+		gameday := model.Direction{ID: uuid.New(), SourceID: "gameday"}
+
+		paths := []busapi.PatternPathsResponse{
+			{PatternPaths: []busapi.MapPatternPath{{DirectionKey: "campus", PatternPoints: []busapi.MapPatternPoint{
+				{Latitude: 30.61454, Longitude: -96.34241, Stop: &busapi.MapStop{StopCode: "0100", Name: "MSC"}},
+			}}}},
+			{PatternPaths: []busapi.MapPatternPath{{DirectionKey: "gameday", PatternPoints: []busapi.MapPatternPoint{
+				{Latitude: 30.6, Longitude: -96.3},
+				{Latitude: 30.61518, Longitude: -96.33739, Stop: &busapi.MapStop{StopCode: "0100", Name: "Commons"}},
+			}}}},
+		}
+
+		rows := stopRows(paths, map[string]model.Direction{"campus": campus, "gameday": gameday})
+
+		Expect(rows).To(Equal([]model.Stop{
+			{DirectionID: campus.ID, SourceID: "0100", Name: "MSC", Lat: 30.61454, Lon: -96.34241, Sequence: 0},
+			{DirectionID: gameday.ID, SourceID: "0100", Name: "Commons", Lat: 30.61518, Lon: -96.33739, Sequence: 0},
+		}))
+	})
+})
+
 var _ = Describe("alertRows", Label("unit"), func() {
 	It("leaves the end empty for alerts that run until further notice", func() {
 		rows := alertRows([]busapi.MapServiceInterruption{

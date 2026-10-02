@@ -105,6 +105,5 @@ var _ = Describe("departureRows", Label("unit"), func() {
 		Expect(rows).To(HaveLen(1))
 		Expect(rows[0].RouteID).To(Equal(target.RouteID))
 		Expect(rows[0].StopID).To(Equal(target.StopID))
-		Expect(rows[0].DirectionID).To(Equal(target.DirectionID))
 	})
 })

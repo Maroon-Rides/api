@@ -94,7 +94,6 @@ type WebsocketDeparturesMessage struct {
 type WebsocketDeparture struct {
 	ID          uuid.UUID  `json:"id"`
 	StopID      uuid.UUID  `json:"stopId"`
-	DirectionID uuid.UUID  `json:"directionId"`
 	ScheduledAt time.Time  `json:"scheduledAt"`
 	EstimatedAt *time.Time `json:"estimatedAt"`
 	IsCancelled bool       `json:"isCancelled"`
@@ -108,7 +107,6 @@ func NewWebsocketDeparturesMessage(routeID uuid.UUID, departures []model.Departu
 			return WebsocketDeparture{
 				ID:          d.ID,
 				StopID:      d.StopID,
-				DirectionID: d.DirectionID,
 				ScheduledAt: d.ScheduledAt,
 				EstimatedAt: d.EstimatedAt,
 				IsCancelled: d.IsCancelled,

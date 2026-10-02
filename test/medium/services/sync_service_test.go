@@ -26,7 +26,7 @@ var (
 	entities = dtos.SyncEntityTypes
 
 	allTypes = []dtos.SyncRequestType{
-		requests.RoutesV1, requests.DirectionsV1, requests.StopsV1, requests.DirectionStopsV1,
+		requests.RoutesV1, requests.DirectionsV1, requests.StopsV1,
 		requests.AlertsV1, requests.AlertDirectionsV1, requests.TimetablesV1,
 	}
 )
@@ -124,7 +124,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.sync(allTypes...)
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{
-				entities.RouteV1, entities.DirectionV1, entities.StopV1, entities.DirectionStopV1,
+				entities.RouteV1, entities.DirectionV1, entities.StopV1,
 				entities.AlertV1, entities.AlertDirectionV1, entities.TimetableV1, entities.SyncCompleteV1,
 			}))
 		})
@@ -134,20 +134,20 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 
 			Expect(lines[0].Data).To(Equal(dtos.NewSyncRouteV1(network.Route)))
 			Expect(lines[1].Data).To(Equal(dtos.NewSyncDirectionV1(network.Direction)))
-			Expect(lines[3].Data).To(Equal(dtos.NewSyncDirectionStopV1(network.DirectionStop)))
-			Expect(lines[5].Data).To(Equal(dtos.NewSyncAlertDirectionV1(network.AlertDirection)))
-			Expect(lines[7].Data).To(Equal(dtos.SyncCompleteV1{}))
+			Expect(lines[2].Data).To(Equal(dtos.NewSyncStopV1(network.Stop)))
+			Expect(lines[4].Data).To(Equal(dtos.NewSyncAlertDirectionV1(network.AlertDirection)))
+			Expect(lines[6].Data).To(Equal(dtos.SyncCompleteV1{}))
 
 			stop := lines[2].Data.(dtos.SyncStopV1)
-			Expect(stop.ID).To(Equal(network.Stop.ID))
+			Expect(stop.DirectionID).To(Equal(network.Direction.ID))
 			Expect(stop.Amenities).To(Equal([]string{"shelter"}))
 
-			alert := lines[4].Data.(dtos.SyncAlertV1)
+			alert := lines[3].Data.(dtos.SyncAlertV1)
 			Expect(alert.ID).To(Equal(network.Alert.ID))
 			Expect(alert.StartsAt).To(BeTemporally("==", network.Alert.StartsAt))
 			Expect(alert.EndsAt).To(BeNil())
 
-			timetable := lines[6].Data.(dtos.SyncTimetableV1)
+			timetable := lines[5].Data.(dtos.SyncTimetableV1)
 			Expect(timetable.ServiceDate).To(Equal("2026-09-27"))
 			Expect(timetable.Departures).To(HaveLen(len(network.Timetable.Departures)))
 			for i, departure := range network.Timetable.Departures {
@@ -195,7 +195,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			lines := client.sync(allTypes...)
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{
-				entities.RouteV1, entities.RouteV1, entities.DirectionV1, entities.StopV1, entities.DirectionStopV1,
+				entities.RouteV1, entities.RouteV1, entities.DirectionV1, entities.StopV1,
 				entities.AlertV1, entities.AlertDirectionV1, entities.TimetableV1, entities.SyncCompleteV1,
 			}))
 			Expect(lines[0].Data.(dtos.SyncRouteV1).LongName).To(Equal("Renamed"))

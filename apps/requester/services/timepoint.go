@@ -25,9 +25,9 @@ func (s *TimepointService) Sync(ctx context.Context) error {
 		return fmt.Errorf("fetching gtfs feed: %w", err)
 	}
 
-	refs, err := s.repo.GetDirectionStopRefs(ctx)
+	refs, err := s.repo.GetStopRefs(ctx)
 	if err != nil {
-		return fmt.Errorf("fetching direction stops: %w", err)
+		return fmt.Errorf("fetching stops: %w", err)
 	}
 
 	changes := timepointChanges(refs, feedTimepoints(feed))
@@ -79,8 +79,8 @@ type timepointChangeSet struct {
 	cleared []uuid.UUID
 }
 
-// timepointChanges leaves direction stops the feed does not schedule as they are.
-func timepointChanges(refs []repositories.DirectionStopRef, timepoints map[routeStop]bool) timepointChangeSet {
+// timepointChanges leaves stops the feed does not schedule as they are.
+func timepointChanges(refs []repositories.StopRef, timepoints map[routeStop]bool) timepointChangeSet {
 	var changes timepointChangeSet
 
 	for _, ref := range refs {

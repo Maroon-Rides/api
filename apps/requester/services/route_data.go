@@ -53,13 +53,9 @@ func (s *RouteDataService) Sync(ctx context.Context) error {
 		return fmt.Errorf("upserting directions: %w", err)
 	}
 
-	stops, err := s.repo.UpsertStops(ctx, stopRows(paths))
-	if err != nil {
-		return fmt.Errorf("upserting stops: %w", err)
-	}
-
-	if err := s.repo.UpsertDirectionStops(ctx, directionStopRows(paths, directions, stops)); err != nil {
-		return fmt.Errorf("upserting direction stops: %w", err)
+	directionIDs := lo.MapToSlice(directions, func(_ string, d model.Direction) uuid.UUID { return d.ID })
+	if err := s.repo.SyncStops(ctx, directionIDs, stopRows(paths, directions)); err != nil {
+		return fmt.Errorf("syncing stops: %w", err)
 	}
 
 	alerts, err := s.repo.SyncAlerts(ctx, alertRows(baseData.ServiceInterruptions))
@@ -195,23 +191,8 @@ func directionRows(paths []busapi.PatternPathsResponse, routes map[string]model.
 	return out
 }
 
-func stopRows(paths []busapi.PatternPathsResponse) []model.Stop {
-	return lo.FlatMap(paths, func(response busapi.PatternPathsResponse, _ int) []model.Stop {
-		return lo.FlatMap(response.PatternPaths, func(path busapi.MapPatternPath, _ int) []model.Stop {
-			return lo.Map(stopPoints(path.PatternPoints), func(point busapi.MapPatternPoint, _ int) model.Stop {
-				return model.Stop{
-					SourceID: point.Stop.StopCode,
-					Name:     point.Stop.Name,
-					Lat:      point.Latitude,
-					Lon:      point.Longitude,
-				}
-			})
-		})
-	})
-}
-
-func directionStopRows(paths []busapi.PatternPathsResponse, directions map[string]model.Direction, stops map[string]model.Stop) []model.DirectionStop {
-	var out []model.DirectionStop
+func stopRows(paths []busapi.PatternPathsResponse, directions map[string]model.Direction) []model.Stop {
+	var out []model.Stop
 
 	for _, response := range paths {
 		for _, path := range response.PatternPaths {
@@ -222,15 +203,12 @@ func directionStopRows(paths []busapi.PatternPathsResponse, directions map[strin
 			}
 
 			for sequence, point := range stopPoints(path.PatternPoints) {
-				stop, stored := stops[point.Stop.StopCode]
-				if !stored {
-					slog.Warn("Pattern point names an unknown stop", "stop", point.Stop.StopCode)
-					continue
-				}
-
-				out = append(out, model.DirectionStop{
+				out = append(out, model.Stop{
 					DirectionID: direction.ID,
-					StopID:      stop.ID,
+					SourceID:    point.Stop.StopCode,
+					Name:        point.Stop.Name,
+					Lat:         point.Latitude,
+					Lon:         point.Longitude,
 					Sequence:    sequence,
 				})
 			}

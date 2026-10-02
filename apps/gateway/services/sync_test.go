@@ -193,12 +193,12 @@ var _ = Describe("acks", Label("unit"), func() {
 	It("round-trips through FormatAck and ParseAck", func() {
 		id := newV7()
 
-		ack := services.FormatAck(entities.DirectionStopDeleteV1, id)
-		Expect(ack).To(Equal("DirectionStopDeleteV1|" + id.String()))
+		ack := services.FormatAck(entities.StopDeleteV1, id)
+		Expect(ack).To(Equal("StopDeleteV1|" + id.String()))
 
 		entity, parsed, err := services.ParseAck(ack)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(entity).To(Equal(entities.DirectionStopDeleteV1))
+		Expect(entity).To(Equal(entities.StopDeleteV1))
 		Expect(parsed).To(Equal(id))
 	})
 

@@ -26,13 +26,11 @@ func (r *TimetableRepository) SyncTimetables(ctx context.Context, serviceDate ti
 	}
 
 	_, err := syncAll(ctx, r.db, timetables,
-		func(t model.Timetable) string {
-			return t.StopID.String() + t.DirectionID.String() + t.ServiceDate.Format(time.DateOnly)
-		},
+		func(t model.Timetable) string { return t.StopID.String() + t.ServiceDate.Format(time.DateOnly) },
 		func(t model.Timetable) uuid.UUID { return t.ID },
 		upsertSpec{
-			columns:  []string{"stopId", "directionId", "routeId", "serviceDate", "departures"},
-			conflict: `CONFLICT ("stopId", "directionId", "serviceDate") DO UPDATE`,
+			columns:  []string{"stopId", "serviceDate", "departures"},
+			conflict: `CONFLICT ("stopId", "serviceDate") DO UPDATE`,
 			set:      `"departures" = EXCLUDED."departures"`,
 		},
 		whereIn("serviceDate", []string{serviceDate.Format(time.DateOnly)}),

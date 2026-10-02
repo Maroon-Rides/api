@@ -144,17 +144,13 @@ func (s *LiveDataService) SyncDepartures(ctx context.Context, targets []reposito
 		return fmt.Errorf("updating stop amenities: %w", err)
 	}
 
-	fetchedStopIDs := lo.Map(lo.Keys(results), func(stopSourceID string, _ int) uuid.UUID {
-		return targetsByStop[stopSourceID][0].StopID
+	fetchedStopIDs := lo.FlatMap(lo.Keys(results), func(stopSourceID string, _ int) []uuid.UUID {
+		return lo.Map(targetsByStop[stopSourceID], func(t repositories.DepartureTarget, _ int) uuid.UUID { return t.StopID })
 	})
-
-	targetRouteIDs := lo.Uniq(lo.Map(targets, func(t repositories.DepartureTarget, _ int) uuid.UUID {
-		return t.RouteID
-	}))
 
 	departures := departureRows(results, lo.KeyBy(targets, keyDepartureTarget))
 
-	if err := s.repo.SyncDepartures(ctx, targetRouteIDs, fetchedStopIDs, departures); err != nil {
+	if err := s.repo.SyncDepartures(ctx, fetchedStopIDs, departures); err != nil {
 		return fmt.Errorf("syncing departures: %w", err)
 	}
 
@@ -257,7 +253,6 @@ func departureRows(
 
 				departure.RouteID = target.RouteID
 				departure.StopID = target.StopID
-				departure.DirectionID = target.DirectionID
 				out = append(out, departure)
 			}
 		}

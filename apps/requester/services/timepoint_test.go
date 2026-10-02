@@ -48,21 +48,21 @@ var _ = Describe("timepointChanges", Label("unit"), func() {
 		{routeShortName: "12", stopCode: "1202"}: false,
 	}
 
-	It("updates only direction stops whose flag differs from the feed", func() {
-		marked := repositories.DirectionStopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1200"}
-		cleared := repositories.DirectionStopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1202", IsTimepoint: true}
-		unchanged := repositories.DirectionStopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1200", IsTimepoint: true}
+	It("updates only stops whose flag differs from the feed", func() {
+		marked := repositories.StopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1200"}
+		cleared := repositories.StopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1202", IsTimepoint: true}
+		unchanged := repositories.StopRef{ID: uuid.New(), RouteShortName: "12", StopSourceID: "1200", IsTimepoint: true}
 
-		changes := timepointChanges([]repositories.DirectionStopRef{marked, cleared, unchanged}, timepoints)
+		changes := timepointChanges([]repositories.StopRef{marked, cleared, unchanged}, timepoints)
 
 		Expect(changes.marked).To(Equal([]uuid.UUID{marked.ID}))
 		Expect(changes.cleared).To(Equal([]uuid.UUID{cleared.ID}))
 	})
 
-	It("leaves direction stops the feed does not schedule", func() {
-		unscheduled := repositories.DirectionStopRef{ID: uuid.New(), RouteShortName: "01", StopSourceID: "1200", IsTimepoint: true}
+	It("leaves stops the feed does not schedule", func() {
+		unscheduled := repositories.StopRef{ID: uuid.New(), RouteShortName: "01", StopSourceID: "1200", IsTimepoint: true}
 
-		changes := timepointChanges([]repositories.DirectionStopRef{unscheduled}, timepoints)
+		changes := timepointChanges([]repositories.StopRef{unscheduled}, timepoints)
 
 		Expect(changes.marked).To(BeEmpty())
 		Expect(changes.cleared).To(BeEmpty())

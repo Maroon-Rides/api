@@ -6,7 +6,6 @@ var SyncTables = []sync.Table{
 	sync.For[Route, RouteAudit]("routeId"),
 	sync.For[Direction, DirectionAudit]("directionId"),
 	sync.For[Stop, StopAudit]("stopId"),
-	sync.For[DirectionStop, DirectionStopAudit]("directionStopId"),
 	sync.For[Alert, AlertAudit]("alertId"),
 	sync.For[AlertDirection, AlertDirectionAudit]("alertDirectionId"),
 	sync.For[Timetable, TimetableAudit]("timetableId"),

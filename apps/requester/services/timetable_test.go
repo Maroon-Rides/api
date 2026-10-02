@@ -7,9 +7,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/samber/lo"
+
+	"github.com/MaroonRides/api/apps/requester/repositories"
 	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/MaroonRides/api/internal/db/model"
 )
+
+func stopsByKey(stops ...model.Stop) map[string]model.Stop {
+	return lo.KeyBy(stops, func(s model.Stop) string { return repositories.StopKey(s.DirectionID, s.SourceID) })
+}
 
 var _ = Describe("serviceDate", Label("unit"), func() {
 	It("uses the service time zone", func() {
@@ -64,7 +71,7 @@ var _ = Describe("scheduleDirectionIndex", Label("unit"), func() {
 	)
 
 	It("skips stop schedules on unknown directions", func() {
-		stop := model.Stop{ID: uuid.New(), SourceID: "0048"}
+		stop := model.Stop{ID: uuid.New(), DirectionID: toMSC.ID, SourceID: "0048"}
 		date := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
 
 		results := map[string]busapi.StopSchedulesResponse{
@@ -78,16 +85,38 @@ var _ = Describe("scheduleDirectionIndex", Label("unit"), func() {
 			}},
 		}
 
-		rows := timetableRows(results, map[string]model.Stop{stop.SourceID: stop}, index, date)
+		rows := timetableRows(results, stopsByKey(stop), index, date)
 
 		Expect(rows).To(HaveLen(1))
-		Expect(rows[0].DirectionID).To(Equal(toMSC.ID))
-		Expect(rows[0].RouteID).To(Equal(toMSC.RouteID))
 		Expect(rows[0].StopID).To(Equal(stop.ID))
 	})
 
+	It("files a shared stop code under each direction's own stop", func() {
+		mscStop := model.Stop{ID: uuid.New(), DirectionID: toMSC.ID, SourceID: "0100"}
+		circulatorStop := model.Stop{ID: uuid.New(), DirectionID: circulator.ID, SourceID: "0100"}
+		date := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
+
+		results := map[string]busapi.StopSchedulesResponse{
+			"0100": {RouteStopSchedules: []busapi.RouteStopSchedule{
+				{RouteNumber: "03", DirectionName: "to MSC", StopTimes: []busapi.StopTime{
+					{ScheduledDepartTimeUtc: "2026-09-28T12:11:00Z"},
+				}},
+				{RouteNumber: "01", DirectionName: "Campus Circulator", StopTimes: []busapi.StopTime{
+					{ScheduledDepartTimeUtc: "2026-09-28T12:20:00Z"},
+				}},
+			}},
+		}
+
+		rows := timetableRows(results, stopsByKey(mscStop, circulatorStop), index, date)
+
+		Expect(rows).To(ConsistOf(
+			HaveField("StopID", mscStop.ID),
+			HaveField("StopID", circulatorStop.ID),
+		))
+	})
+
 	It("folds a stop's departures in one direction into one sorted timetable", func() {
-		stop := model.Stop{ID: uuid.New(), SourceID: "0048"}
+		stop := model.Stop{ID: uuid.New(), DirectionID: toMSC.ID, SourceID: "0048"}
 		date := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
 
 		results := map[string]busapi.StopSchedulesResponse{
@@ -103,7 +132,7 @@ var _ = Describe("scheduleDirectionIndex", Label("unit"), func() {
 			}},
 		}
 
-		rows := timetableRows(results, map[string]model.Stop{stop.SourceID: stop}, index, date)
+		rows := timetableRows(results, stopsByKey(stop), index, date)
 
 		Expect(rows).To(HaveLen(1))
 		Expect(rows[0].ServiceDate).To(Equal(date))

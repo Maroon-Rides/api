@@ -8,7 +8,6 @@ var SyncRequestTypes = struct {
 	RoutesV1          SyncRequestType
 	DirectionsV1      SyncRequestType
 	StopsV1           SyncRequestType
-	DirectionStopsV1  SyncRequestType
 	AlertsV1          SyncRequestType
 	AlertDirectionsV1 SyncRequestType
 	TimetablesV1      SyncRequestType
@@ -16,7 +15,6 @@ var SyncRequestTypes = struct {
 	RoutesV1:          "RoutesV1",
 	DirectionsV1:      "DirectionsV1",
 	StopsV1:           "StopsV1",
-	DirectionStopsV1:  "DirectionStopsV1",
 	AlertsV1:          "AlertsV1",
 	AlertDirectionsV1: "AlertDirectionsV1",
 	TimetablesV1:      "TimetablesV1",
@@ -33,8 +31,6 @@ var SyncEntityTypes = struct {
 	DirectionDeleteV1      SyncEntityType
 	StopV1                 SyncEntityType
 	StopDeleteV1           SyncEntityType
-	DirectionStopV1        SyncEntityType
-	DirectionStopDeleteV1  SyncEntityType
 	AlertV1                SyncEntityType
 	AlertDeleteV1          SyncEntityType
 	AlertDirectionV1       SyncEntityType
@@ -51,8 +47,6 @@ var SyncEntityTypes = struct {
 	DirectionDeleteV1:      "DirectionDeleteV1",
 	StopV1:                 "StopV1",
 	StopDeleteV1:           "StopDeleteV1",
-	DirectionStopV1:        "DirectionStopV1",
-	DirectionStopDeleteV1:  "DirectionStopDeleteV1",
 	AlertV1:                "AlertV1",
 	AlertDeleteV1:          "AlertDeleteV1",
 	AlertDirectionV1:       "AlertDirectionV1",

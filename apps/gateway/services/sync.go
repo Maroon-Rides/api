@@ -53,7 +53,6 @@ var SyncStreams = []SyncStream{
 	NewSyncStream(dtos.SyncRequestTypes.RoutesV1, dtos.SyncEntityTypes.RouteV1, dtos.SyncEntityTypes.RouteDeleteV1, dtos.NewSyncRouteV1, dtos.NewSyncRouteDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.DirectionsV1, dtos.SyncEntityTypes.DirectionV1, dtos.SyncEntityTypes.DirectionDeleteV1, dtos.NewSyncDirectionV1, dtos.NewSyncDirectionDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.StopsV1, dtos.SyncEntityTypes.StopV1, dtos.SyncEntityTypes.StopDeleteV1, dtos.NewSyncStopV1, dtos.NewSyncStopDeleteV1),
-	NewSyncStream(dtos.SyncRequestTypes.DirectionStopsV1, dtos.SyncEntityTypes.DirectionStopV1, dtos.SyncEntityTypes.DirectionStopDeleteV1, dtos.NewSyncDirectionStopV1, dtos.NewSyncDirectionStopDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.AlertsV1, dtos.SyncEntityTypes.AlertV1, dtos.SyncEntityTypes.AlertDeleteV1, dtos.NewSyncAlertV1, dtos.NewSyncAlertDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.AlertDirectionsV1, dtos.SyncEntityTypes.AlertDirectionV1, dtos.SyncEntityTypes.AlertDirectionDeleteV1, dtos.NewSyncAlertDirectionV1, dtos.NewSyncAlertDirectionDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.TimetablesV1, dtos.SyncEntityTypes.TimetableV1, dtos.SyncEntityTypes.TimetableDeleteV1, dtos.NewSyncTimetableV1, dtos.NewSyncTimetableDeleteV1),
