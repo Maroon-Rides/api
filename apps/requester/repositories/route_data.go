@@ -232,91 +232,46 @@ func (r *RouteDataRepository) SyncVehicles(ctx context.Context, routeIDs []uuid.
 		}
 	}
 
-	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		stored, err := upsertAll(ctx, tx, vehicles,
-			func(vehicle model.Vehicle) string { return vehicle.SourceID },
-			upsertSpec{
-				columns:  []string{"sourceId", "routeId", "directionId", "name", "lat", "lon", "heading", "speed", "passengers", "capacity", "amenities"},
-				conflict: `CONFLICT ("sourceId") DO UPDATE`,
-				set:      `"routeId" = EXCLUDED."routeId", "directionId" = EXCLUDED."directionId", "name" = EXCLUDED."name", "lat" = EXCLUDED."lat", "lon" = EXCLUDED."lon", "heading" = EXCLUDED."heading", "speed" = EXCLUDED."speed", "passengers" = EXCLUDED."passengers", "capacity" = EXCLUDED."capacity", "amenities" = EXCLUDED."amenities", "seenAt" = clock_timestamp()`,
-			})
-		if err != nil {
-			return err
-		}
+	_, err := syncAll(ctx, r.db, vehicles,
+		func(vehicle model.Vehicle) string { return vehicle.SourceID },
+		func(vehicle model.Vehicle) uuid.UUID { return vehicle.ID },
+		upsertSpec{
+			columns:  []string{"sourceId", "routeId", "directionId", "name", "lat", "lon", "heading", "speed", "passengers", "capacity", "amenities"},
+			conflict: `CONFLICT ("sourceId") DO UPDATE`,
+			set:      `"routeId" = EXCLUDED."routeId", "directionId" = EXCLUDED."directionId", "name" = EXCLUDED."name", "lat" = EXCLUDED."lat", "lon" = EXCLUDED."lon", "heading" = EXCLUDED."heading", "speed" = EXCLUDED."speed", "passengers" = EXCLUDED."passengers", "capacity" = EXCLUDED."capacity", "amenities" = EXCLUDED."amenities", "seenAt" = clock_timestamp()`,
+		},
+		whereIn("routeId", routeIDs))
 
-		staleVehicles := tx.NewDelete().
-			Model(&model.Vehicle{}).
-			Where("? IN (?)", bun.Ident("routeId"), bun.In(routeIDs))
-
-		if len(stored) > 0 {
-			staleVehicles = staleVehicles.Where("? NOT IN (?)", bun.Ident("sourceId"), bun.In(lo.Keys(stored)))
-		}
-
-		_, err = staleVehicles.Exec(ctx)
-		return err
-	})
+	return err
 }
 
 // SyncAlerts replaces every stored alert with the given set.
 func (r *RouteDataRepository) SyncAlerts(ctx context.Context, alerts []model.Alert) (map[string]model.Alert, error) {
-	var stored map[string]model.Alert
-
-	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		var err error
-		stored, err = upsertAll(ctx, tx, alerts,
-			func(alert model.Alert) string { return alert.SourceID },
-			upsertSpec{
-				columns:  []string{"sourceId", "title", "description", "timeRangeText", "dailyStartTime", "dailyEndTime", "startsAt", "endsAt"},
-				conflict: `CONFLICT ("sourceId") DO UPDATE`,
-				set:      `"title" = EXCLUDED."title", "description" = EXCLUDED."description", "timeRangeText" = EXCLUDED."timeRangeText", "dailyStartTime" = EXCLUDED."dailyStartTime", "dailyEndTime" = EXCLUDED."dailyEndTime", "startsAt" = EXCLUDED."startsAt", "endsAt" = EXCLUDED."endsAt"`,
-			})
-		if err != nil {
-			return err
-		}
-
-		staleAlerts := tx.NewDelete().Model(&model.Alert{})
-		if len(stored) == 0 {
-			staleAlerts = staleAlerts.Where("TRUE")
-		} else {
-			staleAlerts = staleAlerts.Where("? NOT IN (?)", bun.Ident("sourceId"), bun.In(lo.Keys(stored)))
-		}
-
-		_, err = staleAlerts.Exec(ctx)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return stored, nil
+	return syncAll(ctx, r.db, alerts,
+		func(alert model.Alert) string { return alert.SourceID },
+		func(alert model.Alert) uuid.UUID { return alert.ID },
+		upsertSpec{
+			columns:  []string{"sourceId", "title", "description", "timeRangeText", "dailyStartTime", "dailyEndTime", "startsAt", "endsAt"},
+			conflict: `CONFLICT ("sourceId") DO UPDATE`,
+			set:      `"title" = EXCLUDED."title", "description" = EXCLUDED."description", "timeRangeText" = EXCLUDED."timeRangeText", "dailyStartTime" = EXCLUDED."dailyStartTime", "dailyEndTime" = EXCLUDED."dailyEndTime", "startsAt" = EXCLUDED."startsAt", "endsAt" = EXCLUDED."endsAt"`,
+		},
+		everyRow)
 }
 
 // SyncAlertDirections replaces every stored alert direction with the given set.
 func (r *RouteDataRepository) SyncAlertDirections(ctx context.Context, alertDirections []model.AlertDirection) error {
-	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		stored, err := upsertAll(ctx, tx, alertDirections,
-			func(ad model.AlertDirection) string { return ad.AlertID.String() + ad.DirectionID.String() },
-			upsertSpec{
-				columns:  []string{"alertId", "directionId"},
-				conflict: `CONFLICT ("alertId", "directionId") DO UPDATE`,
-				// a no-op update, so RETURNING hands back the ids of rows that already existed
-				set: `"alertId" = EXCLUDED."alertId"`,
-			})
-		if err != nil {
-			return err
-		}
+	_, err := syncAll(ctx, r.db, alertDirections,
+		func(ad model.AlertDirection) string { return ad.AlertID.String() + ad.DirectionID.String() },
+		func(ad model.AlertDirection) uuid.UUID { return ad.ID },
+		upsertSpec{
+			columns:  []string{"alertId", "directionId"},
+			conflict: `CONFLICT ("alertId", "directionId") DO UPDATE`,
+			// a no-op update, so RETURNING hands back the ids of rows that already existed
+			set: `"alertId" = EXCLUDED."alertId"`,
+		},
+		everyRow)
 
-		staleAlertDirections := tx.NewDelete().Model(&model.AlertDirection{})
-		if len(stored) == 0 {
-			staleAlertDirections = staleAlertDirections.Where("TRUE")
-		} else {
-			storedIDs := lo.MapToSlice(stored, func(_ string, ad model.AlertDirection) uuid.UUID { return ad.ID })
-			staleAlertDirections = staleAlertDirections.Where("? NOT IN (?)", bun.Ident("id"), bun.In(storedIDs))
-		}
-
-		_, err = staleAlertDirections.Exec(ctx)
-		return err
-	})
+	return err
 }
 
 func (r *RouteDataRepository) GetStops(ctx context.Context) ([]model.Stop, error) {
@@ -365,33 +320,20 @@ func (r *RouteDataRepository) SyncDepartures(ctx context.Context, routeIDs []uui
 		return nil
 	}
 
-	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		stored, err := upsertAll(ctx, tx, departures,
-			func(d model.Departure) string {
-				return d.RouteID.String() + d.StopID.String() + d.DirectionID.String() + d.ScheduledAt.String()
-			},
-			upsertSpec{
-				columns:  []string{"routeId", "stopId", "directionId", "scheduledAt", "estimatedAt", "isCancelled"},
-				conflict: `CONFLICT ("routeId", "stopId", "directionId", "scheduledAt") DO UPDATE`,
-				set:      `"estimatedAt" = EXCLUDED."estimatedAt", "isCancelled" = EXCLUDED."isCancelled"`,
-			})
-		if err != nil {
-			return err
-		}
+	_, err := syncAll(ctx, r.db, departures,
+		func(d model.Departure) string {
+			return d.RouteID.String() + d.StopID.String() + d.DirectionID.String() + d.ScheduledAt.String()
+		},
+		func(d model.Departure) uuid.UUID { return d.ID },
+		upsertSpec{
+			columns:  []string{"routeId", "stopId", "directionId", "scheduledAt", "estimatedAt", "isCancelled"},
+			conflict: `CONFLICT ("routeId", "stopId", "directionId", "scheduledAt") DO UPDATE`,
+			set:      `"estimatedAt" = EXCLUDED."estimatedAt", "isCancelled" = EXCLUDED."isCancelled"`,
+		},
+		whereIn("stopId", stopIDs),
+		whereIn("routeId", routeIDs))
 
-		staleDepartures := tx.NewDelete().
-			Model(&model.Departure{}).
-			Where("? IN (?)", bun.Ident("stopId"), bun.In(stopIDs)).
-			Where("? IN (?)", bun.Ident("routeId"), bun.In(routeIDs))
-
-		if len(stored) > 0 {
-			storedIDs := lo.MapToSlice(stored, func(_ string, d model.Departure) uuid.UUID { return d.ID })
-			staleDepartures = staleDepartures.Where("? NOT IN (?)", bun.Ident("id"), bun.In(storedIDs))
-		}
-
-		_, err = staleDepartures.Exec(ctx)
-		return err
-	})
+	return err
 }
 
 func (r *RouteDataRepository) DeactivateInactiveRoutes(ctx context.Context, activeRoutes []string) error {

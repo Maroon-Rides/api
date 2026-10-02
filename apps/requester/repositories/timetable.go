@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/uptrace/bun"
 
 	"github.com/MaroonRides/api/internal/db/model"
@@ -26,33 +25,20 @@ func (r *TimetableRepository) SyncTimetables(ctx context.Context, serviceDate ti
 		return nil
 	}
 
-	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		stored, err := upsertAll(ctx, tx, timetables,
-			func(t model.Timetable) string {
-				return t.StopID.String() + t.DirectionID.String() + t.ServiceDate.Format(time.DateOnly)
-			},
-			upsertSpec{
-				columns:  []string{"stopId", "directionId", "routeId", "serviceDate", "departures"},
-				conflict: `CONFLICT ("stopId", "directionId", "serviceDate") DO UPDATE`,
-				set:      `"departures" = EXCLUDED."departures"`,
-			})
-		if err != nil {
-			return err
-		}
+	_, err := syncAll(ctx, r.db, timetables,
+		func(t model.Timetable) string {
+			return t.StopID.String() + t.DirectionID.String() + t.ServiceDate.Format(time.DateOnly)
+		},
+		func(t model.Timetable) uuid.UUID { return t.ID },
+		upsertSpec{
+			columns:  []string{"stopId", "directionId", "routeId", "serviceDate", "departures"},
+			conflict: `CONFLICT ("stopId", "directionId", "serviceDate") DO UPDATE`,
+			set:      `"departures" = EXCLUDED."departures"`,
+		},
+		whereIn("serviceDate", []string{serviceDate.Format(time.DateOnly)}),
+		whereIn("stopId", stopIDs))
 
-		staleTimetables := tx.NewDelete().
-			Model(&model.Timetable{}).
-			Where("? = ?", bun.Ident("serviceDate"), serviceDate.Format(time.DateOnly)).
-			Where("? IN (?)", bun.Ident("stopId"), bun.In(stopIDs))
-
-		if len(stored) > 0 {
-			storedIDs := lo.MapToSlice(stored, func(_ string, t model.Timetable) uuid.UUID { return t.ID })
-			staleTimetables = staleTimetables.Where("? NOT IN (?)", bun.Ident("id"), bun.In(storedIDs))
-		}
-
-		_, err = staleTimetables.Exec(ctx)
-		return err
-	})
+	return err
 }
 
 func (r *TimetableRepository) DeleteTimetablesBefore(ctx context.Context, serviceDate time.Time) error {
