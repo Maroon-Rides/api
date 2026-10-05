@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/Maroon-Rides/api/compare/v1.2.1...v1.2.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* drop directions missing from base data ([9c75891](https://github.com/Maroon-Rides/api/commit/9c75891b1c6e08a5272ee756501ef24cb593b8e7))
+
 ## [1.2.1](https://github.com/Maroon-Rides/api/compare/v1.2.0...v1.2.1) (2026-10-02)
 
 
