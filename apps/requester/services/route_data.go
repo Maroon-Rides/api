@@ -48,9 +48,9 @@ func (s *RouteDataService) Sync(ctx context.Context) error {
 		return fmt.Errorf("fetching pattern paths: %w", err)
 	}
 
-	directions, err := s.repo.UpsertDirections(ctx, directionRows(paths, routes, destinations(baseData.Routes)))
+	directions, err := s.repo.SyncDirections(ctx, pathRouteIDs(paths, routes), directionRows(paths, routes, destinations(baseData.Routes)))
 	if err != nil {
-		return fmt.Errorf("upserting directions: %w", err)
+		return fmt.Errorf("syncing directions: %w", err)
 	}
 
 	directionIDs := lo.MapToSlice(directions, func(_ string, d model.Direction) uuid.UUID { return d.ID })
@@ -176,7 +176,11 @@ func directionRows(paths []busapi.PatternPathsResponse, routes map[string]model.
 		}
 
 		for _, path := range response.PatternPaths {
-			headsign := headsigns[path.DirectionKey]
+			headsign, listed := headsigns[path.DirectionKey]
+			if !listed {
+				slog.Warn("Pattern path names a direction missing from base data", "route", response.RouteKey, "direction", path.DirectionKey)
+				continue
+			}
 
 			out = append(out, model.Direction{
 				SourceID:    path.DirectionKey,
@@ -189,6 +193,14 @@ func directionRows(paths []busapi.PatternPathsResponse, routes map[string]model.
 	}
 
 	return out
+}
+
+// pathRouteIDs leaves out routes the pattern paths skipped, so their directions are kept.
+func pathRouteIDs(paths []busapi.PatternPathsResponse, routes map[string]model.Route) []uuid.UUID {
+	return lo.FilterMap(paths, func(response busapi.PatternPathsResponse, _ int) (uuid.UUID, bool) {
+		route, stored := routes[response.RouteKey]
+		return route.ID, stored
+	})
 }
 
 func stopRows(paths []busapi.PatternPathsResponse, directions map[string]model.Direction) []model.Stop {

@@ -33,6 +33,27 @@ var _ = Describe("stopRows", Label("unit"), func() {
 	})
 })
 
+var _ = Describe("directionRows", Label("unit"), func() {
+	It("skips pattern paths for directions missing from base data", func() {
+		route := model.Route{ID: uuid.New(), SourceID: "03"}
+
+		paths := []busapi.PatternPathsResponse{
+			{RouteKey: "03", PatternPaths: []busapi.MapPatternPath{
+				{DirectionKey: "msc"},
+				{DirectionKey: "unlisted"},
+			}},
+		}
+
+		rows := directionRows(paths, map[string]model.Route{"03": route}, map[string]destination{
+			"msc": {text: "MSC", sequence: 0},
+		})
+
+		Expect(rows).To(HaveLen(1))
+		Expect(rows[0].SourceID).To(Equal("msc"))
+		Expect(rows[0].Destination).To(Equal("MSC"))
+	})
+})
+
 var _ = Describe("alertRows", Label("unit"), func() {
 	It("leaves the end empty for alerts that run until further notice", func() {
 		rows := alertRows([]busapi.MapServiceInterruption{

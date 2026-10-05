@@ -144,14 +144,21 @@ func (r *RouteDataRepository) UpsertRoutes(ctx context.Context, routes []model.R
 		})
 }
 
-func (r *RouteDataRepository) UpsertDirections(ctx context.Context, directions []model.Direction) (map[string]model.Direction, error) {
-	return upsertAll(ctx, r.db, directions,
+// SyncDirections replaces the directions of the given routes, leaving other routes untouched.
+func (r *RouteDataRepository) SyncDirections(ctx context.Context, routeIDs []uuid.UUID, directions []model.Direction) (map[string]model.Direction, error) {
+	if len(routeIDs) == 0 {
+		return map[string]model.Direction{}, nil
+	}
+
+	return syncAll(ctx, r.db, directions,
 		func(direction model.Direction) string { return direction.SourceID },
+		func(direction model.Direction) uuid.UUID { return direction.ID },
 		upsertSpec{
 			columns:  []string{"sourceId", "routeId", "destination", "sequence", "path"},
 			conflict: `CONFLICT ("routeId", "destination") DO UPDATE`,
 			set:      `"sourceId" = EXCLUDED."sourceId", "sequence" = EXCLUDED."sequence", "path" = EXCLUDED."path"`,
-		})
+		},
+		whereIn("routeId", routeIDs))
 }
 
 // SyncStops replaces the stops of the given directions, leaving other directions untouched.

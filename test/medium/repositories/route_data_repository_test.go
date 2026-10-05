@@ -58,3 +58,45 @@ var _ = Describe("RouteDataRepository.SyncStops", Label("medium", "repository"),
 		Expect(storedStopIDs()).To(Equal([]uuid.UUID{other.Stop.ID}))
 	})
 })
+
+var _ = Describe("RouteDataRepository.SyncDirections", Label("medium", "repository"), func() {
+	var (
+		bundb  *bun.DB
+		repo   *requester.RouteDataRepository
+		synced test.Network
+		other  test.Network
+		ctx    = context.Background()
+	)
+
+	BeforeEach(func() {
+		bundb = test.Configure()
+		repo = requester.NewRouteDataRepository(bundb)
+		synced = test.CreateNetwork(bundb, "a")
+		other = test.CreateNetwork(bundb, "b")
+	})
+
+	storedDirectionIDs := func() []uuid.UUID {
+		var ids []uuid.UUID
+		err := bundb.NewSelect().Model((*model.Direction)(nil)).Column("id").Scan(ctx, &ids)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		return ids
+	}
+
+	It("keeps a direction the route still runs", func() {
+		_, err := repo.SyncDirections(ctx, []uuid.UUID{synced.Route.ID}, []model.Direction{synced.Direction})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(storedDirectionIDs()).To(ConsistOf(synced.Direction.ID, other.Direction.ID))
+	})
+
+	It("removes a direction the route no longer runs, leaving other routes alone", func() {
+		replacement := model.Direction{RouteID: synced.Route.ID, SourceID: "replacement", Destination: "Replacement"}
+
+		_, err := repo.SyncDirections(ctx, []uuid.UUID{synced.Route.ID}, []model.Direction{replacement})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(storedDirectionIDs()).To(HaveLen(2))
+		Expect(storedDirectionIDs()).To(ContainElement(other.Direction.ID))
+		Expect(storedDirectionIDs()).NotTo(ContainElement(synced.Direction.ID))
+	})
+})
