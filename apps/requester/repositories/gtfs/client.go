@@ -43,6 +43,9 @@ type ClientConfig struct {
 	FeedURL string
 
 	HTTPClient *http.Client
+
+	// wraps the default transport; ignored when HTTPClient is set
+	WrapTransport func(http.RoundTripper) http.RoundTripper
 }
 
 func NewClient(cfg ClientConfig) *Client {
@@ -54,6 +57,9 @@ func NewClient(cfg ClientConfig) *Client {
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 		c.http = &http.Client{Timeout: defaultTimeout, Transport: transport}
+		if cfg.WrapTransport != nil {
+			c.http.Transport = cfg.WrapTransport(transport)
+		}
 	}
 	return c
 }

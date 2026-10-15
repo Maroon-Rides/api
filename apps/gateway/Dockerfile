@@ -3,5 +3,5 @@ FROM gcr.io/distroless/static-debian12:nonroot
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/gateway /usr/local/bin/gateway
 
-EXPOSE 3000
+EXPOSE 3000 9090
 ENTRYPOINT ["/usr/local/bin/gateway"]

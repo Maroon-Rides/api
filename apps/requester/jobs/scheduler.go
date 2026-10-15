@@ -10,6 +10,8 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
 	"go.uber.org/fx"
+
+	"github.com/MaroonRides/api/apps/requester/metrics"
 )
 
 type Job struct {
@@ -25,6 +27,7 @@ type scheduledJob struct {
 
 type Scheduler struct {
 	Scheduler gocron.Scheduler
+	metrics   *metrics.JobMetrics
 
 	mu   sync.Mutex
 	jobs map[string]scheduledJob
@@ -43,7 +46,7 @@ func logJobFailure(_ uuid.UUID, name string, err error) {
 	slog.Error("Job failed", "job", name, "error", err)
 }
 
-func NewScheduler(location *time.Location) (*Scheduler, error) {
+func NewScheduler(location *time.Location, metrics *metrics.JobMetrics) (*Scheduler, error) {
 	s, err := gocron.NewScheduler(gocron.WithLocation(location))
 	if err != nil {
 		return nil, err
@@ -51,8 +54,13 @@ func NewScheduler(location *time.Location) (*Scheduler, error) {
 
 	return &Scheduler{
 		Scheduler: s,
+		metrics:   metrics,
 		jobs:      map[string]scheduledJob{},
 	}, nil
+}
+
+func (s *Scheduler) task(job Job) gocron.Task {
+	return gocron.NewTask(s.metrics.Instrument(job.Name, job.Task))
 }
 
 func (s *Scheduler) Register(jobs []Job) error {
@@ -66,7 +74,7 @@ func (s *Scheduler) Register(jobs []Job) error {
 
 		handle, err := s.Scheduler.NewJob(
 			job.Schedule,
-			gocron.NewTask(job.Task),
+			s.task(job),
 			jobOptions(job.Name)...,
 		)
 		if err != nil {
@@ -92,7 +100,7 @@ func (s *Scheduler) RunNow(name string) error {
 	handle, err := s.Scheduler.Update(
 		scheduled.handle.ID(),
 		scheduled.job.Schedule,
-		gocron.NewTask(scheduled.job.Task),
+		s.task(scheduled.job),
 		jobOptions(scheduled.job.Name)...,
 	)
 	if err != nil {

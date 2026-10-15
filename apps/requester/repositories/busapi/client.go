@@ -48,6 +48,9 @@ type ClientConfig struct {
 
 	HTTPClient *http.Client
 
+	// wraps the default transport; ignored when HTTPClient is set
+	WrapTransport func(http.RoundTripper) http.RoundTripper
+
 	// defaults to handling session authentication automatically
 	Auth AuthProvider
 
@@ -73,6 +76,9 @@ func NewClient(cfg ClientConfig) *Client {
 		// The server omits its intermediate certificate, so Go cannot build the chain.
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 		c.http = &http.Client{Timeout: defaultTimeout, Transport: transport}
+		if cfg.WrapTransport != nil {
+			c.http.Transport = cfg.WrapTransport(transport)
+		}
 	}
 	if c.http.Jar == nil {
 		jar, _ := cookiejar.New(nil)

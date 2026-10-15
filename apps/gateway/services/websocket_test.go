@@ -7,9 +7,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx/fxtest"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/MaroonRides/api/internal/db/model"
 )
@@ -80,7 +82,7 @@ var _ = Describe("WebsocketService", Label("unit"), func() {
 
 	BeforeEach(func() {
 		repo = &fakeSubscriptionRepo{}
-		svc = services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), repo)
+		svc = services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), repo, metrics.NewWebsocketMetrics(prometheus.NewRegistry()))
 		routeA, routeB = newV7(), newV7()
 	})
 
@@ -102,7 +104,7 @@ var _ = Describe("WebsocketService", Label("unit"), func() {
 
 	It("serves other clients while a subscription is being stored", func() {
 		blocking := &blockingSubscriptionRepo{writing: make(chan struct{}), release: make(chan struct{})}
-		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), blocking)
+		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), blocking, metrics.NewWebsocketMetrics(prometheus.NewRegistry()))
 		first, second := &fakeClient{}, &fakeClient{}
 
 		subscribed := make(chan error)

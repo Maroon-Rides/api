@@ -9,10 +9,12 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx/fxtest"
 
 	"github.com/MaroonRides/api/apps/gateway/controllers"
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/services"
 )
 
@@ -27,7 +29,7 @@ func dialWebsocket(server *httptest.Server) *websocket.Conn {
 var _ = Describe("WebsocketController", Label("unit"), func() {
 	It("answers a ping with a pong", func() {
 		server := fuego.NewServer()
-		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), nil)
+		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), nil, metrics.NewWebsocketMetrics(prometheus.NewRegistry()))
 		controllers.NewWebsocketController(svc).Register(fuego.Group(server, "/api"))
 		httpServer := httptest.NewServer(server.Mux)
 		DeferCleanup(httpServer.Close)
@@ -46,7 +48,7 @@ var _ = Describe("WebsocketController origins", Label("unit"), func() {
 
 	BeforeEach(func() {
 		server := fuego.NewServer()
-		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), nil)
+		svc := services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), nil, metrics.NewWebsocketMetrics(prometheus.NewRegistry()))
 		controllers.NewWebsocketController(svc).Register(fuego.Group(server, "/api"))
 		httpServer := httptest.NewServer(server.Mux)
 		DeferCleanup(httpServer.Close)

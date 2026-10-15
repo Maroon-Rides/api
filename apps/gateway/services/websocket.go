@@ -13,6 +13,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/internal/db/model"
 )
 
@@ -31,6 +32,7 @@ type WebsocketClient interface {
 
 type WebsocketService struct {
 	repo      LiveDataRepository
+	metrics   *metrics.WebsocketMetrics
 	gatewayID uuid.UUID
 
 	mu           sync.Mutex
@@ -41,9 +43,10 @@ type WebsocketService struct {
 	syncMu sync.Mutex
 }
 
-func NewWebsocketService(lc fx.Lifecycle, repo LiveDataRepository) *WebsocketService {
+func NewWebsocketService(lc fx.Lifecycle, repo LiveDataRepository, metrics *metrics.WebsocketMetrics) *WebsocketService {
 	s := &WebsocketService{
 		repo:         repo,
+		metrics:      metrics,
 		gatewayID:    uuid.Must(uuid.NewV7()),
 		routes:       map[uuid.UUID][]WebsocketClient{},
 		clientRoutes: map[WebsocketClient]uuid.UUID{},
@@ -66,10 +69,12 @@ func NewWebsocketService(lc fx.Lifecycle, repo LiveDataRepository) *WebsocketSer
 
 func (s *WebsocketService) ClientConnected(clientID uuid.UUID) {
 	slog.Info("Websocket client connected", "id", clientID)
+	s.metrics.Clients.Inc()
 }
 
 func (s *WebsocketService) ClientDisconnected(ctx context.Context, clientID uuid.UUID, client WebsocketClient, reason string) {
 	slog.Info("Websocket client disconnected", "id", clientID, "reason", reason)
+	s.metrics.Clients.Dec()
 	s.Unsubscribe(ctx, client)
 }
 
@@ -107,6 +112,7 @@ func (s *WebsocketService) join(client WebsocketClient, routeID uuid.UUID) (join
 
 	s.routes[routeID] = append(s.routes[routeID], client)
 	s.clientRoutes[client] = routeID
+	s.metrics.SubscribedRoutes.Set(float64(len(s.routes)))
 	return true, leftEmpty || len(s.routes[routeID]) == 1
 }
 
@@ -127,10 +133,17 @@ func (s *WebsocketService) sendIfAvailable(ctx context.Context, client Websocket
 	}
 
 	for _, message := range messages {
-		if err := client.Send(message); err != nil {
-			slog.Warn("Failed to send websocket message", "routeId", routeID, "error", err)
-		}
+		s.send(client, routeID, message)
 	}
+}
+
+func (s *WebsocketService) send(client WebsocketClient, routeID uuid.UUID, message any) {
+	if err := client.Send(message); err != nil {
+		s.metrics.SendFailures.Inc()
+		slog.Warn("Failed to send websocket message", "routeId", routeID, "error", err)
+		return
+	}
+	s.metrics.MessagesSent.Inc()
 }
 
 func (s *WebsocketService) Unsubscribe(ctx context.Context, client WebsocketClient) {
@@ -149,9 +162,7 @@ func (s *WebsocketService) Broadcast(routeID uuid.UUID, message any) {
 	s.mu.Unlock()
 
 	for _, client := range clients {
-		if err := client.Send(message); err != nil {
-			slog.Warn("Failed to send websocket message", "routeId", routeID, "error", err)
-		}
+		s.send(client, routeID, message)
 	}
 }
 
@@ -256,6 +267,7 @@ func (s *WebsocketService) unsubscribeAll(ctx context.Context) error {
 	s.mu.Lock()
 	clear(s.routes)
 	clear(s.clientRoutes)
+	s.metrics.SubscribedRoutes.Set(0)
 	s.mu.Unlock()
 
 	return s.syncSubscriptions(ctx)
@@ -294,5 +306,6 @@ func (s *WebsocketService) remove(client WebsocketClient) bool {
 		return false
 	}
 	delete(s.routes, routeID)
+	s.metrics.SubscribedRoutes.Set(float64(len(s.routes)))
 	return true
 }

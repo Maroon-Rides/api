@@ -10,6 +10,7 @@ import (
 
 	"github.com/MaroonRides/api/apps/gateway/config"
 	"github.com/MaroonRides/api/apps/gateway/controllers"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 
 	"github.com/go-fuego/fuego"
 	"github.com/rs/cors"
@@ -37,11 +38,11 @@ func registerAPI(server *fuego.Server, all []controllers.Controller) {
 	sanitizeOpenAPISpec(server.OpenAPI.Description())
 }
 
-func NewServer(lc fx.Lifecycle, controllers Controllers) *fuego.Server {
+func NewServer(lc fx.Lifecycle, controllers Controllers, httpMetrics *metrics.HTTPMetrics) *fuego.Server {
 	addr := ":" + config.Port()
 
 	server := fuego.NewServer(
-		fuego.WithGlobalMiddlewares(corsMiddleware),
+		fuego.WithGlobalMiddlewares(httpMetrics.Middleware, corsMiddleware),
 		fuego.WithLoggingMiddleware(fuego.LoggingConfig{
 			DisableRequest:  true,
 			DisableResponse: true,
