@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.0](https://github.com/Maroon-Rides/api/compare/v1.2.2...v1.3.0) (2026-10-16)
+
+
+### Features
+
+* prometheus metrics ([fbf43f5](https://github.com/Maroon-Rides/api/commit/fbf43f5040948347bd4148618e24134008bf092a))
+* retry requester jobs and count exhausted retries ([13136a7](https://github.com/Maroon-Rides/api/commit/13136a7cbb00c1cab3872764fb2c02a0a18cfe03))
+* sync checkpoint age metrics ([ada63bd](https://github.com/Maroon-Rides/api/commit/ada63bdeeba1cf3eadb011533ed16f887dafbd99))
+
 ## [1.2.2](https://github.com/Maroon-Rides/api/compare/v1.2.1...v1.2.2) (2026-10-05)
 
 
