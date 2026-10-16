@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Maroon-Rides/api/compare/v1.3.0...v1.4.0) (2026-10-16)
+
+
+### Features
+
+* per-route websocket subscription metrics ([877775b](https://github.com/Maroon-Rides/api/commit/877775bd8d7056a05622112f0e0cc83cc4d020ef))
+
 ## [1.3.0](https://github.com/Maroon-Rides/api/compare/v1.2.2...v1.3.0) (2026-10-16)
 
 
