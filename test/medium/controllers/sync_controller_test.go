@@ -15,10 +15,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/uptrace/bun"
 
 	"github.com/MaroonRides/api/apps/gateway/controllers"
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/repositories"
 	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/MaroonRides/api/test"
@@ -62,7 +64,7 @@ var _ = Describe("SyncController", Label("medium", "controller"), func() {
 	BeforeEach(func() {
 		bundb = test.Configure()
 		server := fuego.NewServer()
-		controller := controllers.NewSyncController(services.NewSyncService(repositories.NewSyncRepository(bundb)))
+		controller := controllers.NewSyncController(services.NewSyncService(repositories.NewSyncRepository(bundb), metrics.NewSyncMetrics(prometheus.NewRegistry())))
 		controller.Register(fuego.Group(server, "/api"))
 		handler = server.Mux
 	})

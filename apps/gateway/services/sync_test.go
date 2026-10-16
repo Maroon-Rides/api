@@ -7,8 +7,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/MaroonRides/api/internal/db/model"
 )
@@ -102,7 +104,7 @@ var _ = Describe("SyncProtocols", Label("unit"), func() {
 })
 
 var _ = Describe("SyncService.Plan", Label("unit"), func() {
-	svc := services.NewSyncService(nil)
+	svc := services.NewSyncService(nil, metrics.NewSyncMetrics(prometheus.NewRegistry()))
 
 	It("orders streams by the server, not the request", func() {
 		plan, err := svc.Plan(dtos.SyncRequest{

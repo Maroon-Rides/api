@@ -8,8 +8,10 @@ import (
 	"github.com/go-fuego/fuego"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/MaroonRides/api/apps/gateway/controllers"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/services"
 )
 
@@ -19,7 +21,7 @@ var _ = Describe("SyncController", Label("unit"), func() {
 
 	BeforeEach(func() {
 		server := fuego.NewServer()
-		controllers.NewSyncController(services.NewSyncService(nil)).Register(fuego.Group(server, "/api"))
+		controllers.NewSyncController(services.NewSyncService(nil, metrics.NewSyncMetrics(prometheus.NewRegistry()))).Register(fuego.Group(server, "/api"))
 		handler = server.Mux
 	})
 

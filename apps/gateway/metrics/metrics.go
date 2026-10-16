@@ -3,6 +3,7 @@ package metrics
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/gorilla/websocket"
@@ -15,12 +16,13 @@ const (
 
 	labelRoute  = "route"
 	labelStatus = "status"
+	labelKind   = "kind"
 
 	// Requests that match no route share one label so stray paths cannot grow the series count.
 	unmatchedRoute = "unmatched"
 )
 
-var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics)
+var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics, NewSyncMetrics)
 
 type HTTPMetrics struct {
 	requests *prometheus.CounterVec
@@ -96,4 +98,62 @@ func NewWebsocketMetrics(registry prometheus.Registerer) *WebsocketMetrics {
 	}
 	registry.MustRegister(m.Clients, m.SubscribedRoutes, m.MessagesSent, m.SendFailures)
 	return m
+}
+
+type SyncKind string
+
+const (
+	// The client sent no acks, so it holds nothing yet.
+	SyncKindFull SyncKind = "full"
+	// The client's acks were too old to trust, so it was told to start over.
+	SyncKindReset SyncKind = "reset"
+	// The client got only what changed since its acks.
+	SyncKindIncremental SyncKind = "incremental"
+)
+
+// Clients older than a month are reset, so nothing past 30 days needs its own bucket.
+var syncIntervalBuckets = []float64{
+	time.Minute.Seconds(),
+	(5 * time.Minute).Seconds(),
+	(15 * time.Minute).Seconds(),
+	time.Hour.Seconds(),
+	(3 * time.Hour).Seconds(),
+	(6 * time.Hour).Seconds(),
+	(12 * time.Hour).Seconds(),
+	(24 * time.Hour).Seconds(),
+	(2 * 24 * time.Hour).Seconds(),
+	(7 * 24 * time.Hour).Seconds(),
+	(14 * 24 * time.Hour).Seconds(),
+	(30 * 24 * time.Hour).Seconds(),
+}
+
+type SyncMetrics struct {
+	syncs    *prometheus.CounterVec
+	interval prometheus.Histogram
+}
+
+func NewSyncMetrics(registry prometheus.Registerer) *SyncMetrics {
+	m := &SyncMetrics{
+		syncs: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "syncs_total",
+			Help:      "Sync streams served, by kind.",
+		}, []string{labelKind}),
+		interval: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "sync_interval_seconds",
+			Help:      "Time since the client's previous completed sync.",
+			Buckets:   syncIntervalBuckets,
+		}),
+	}
+	registry.MustRegister(m.syncs, m.interval)
+	return m
+}
+
+// Synced takes the zero time when the client has never completed a sync.
+func (m *SyncMetrics) Synced(kind SyncKind, previous, now time.Time) {
+	m.syncs.WithLabelValues(string(kind)).Inc()
+	if !previous.IsZero() {
+		m.interval.Observe(now.Sub(previous).Seconds())
+	}
 }

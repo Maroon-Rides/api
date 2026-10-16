@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/repositories"
 	"github.com/MaroonRides/api/internal/db/sync"
 )
@@ -134,12 +135,26 @@ func (p SyncPlan) needsReset(now time.Time, resetBefore uuid.UUID) bool {
 		bytes.Compare(p.complete[:], resetBefore[:]) < 0
 }
 
-type SyncService struct {
-	repo *repositories.SyncRepository
+func (p SyncPlan) kind() metrics.SyncKind {
+	if len(p.cursor) == 0 {
+		return metrics.SyncKindFull
+	}
+	return metrics.SyncKindIncremental
 }
 
-func NewSyncService(repo *repositories.SyncRepository) *SyncService {
-	return &SyncService{repo: repo}
+// previousSync is when the client last completed a sync, or the zero time if it never has.
+func (p SyncPlan) previousSync() time.Time {
+	minted, _ := sync.MintedAt(p.complete)
+	return minted
+}
+
+type SyncService struct {
+	repo    *repositories.SyncRepository
+	metrics *metrics.SyncMetrics
+}
+
+func NewSyncService(repo *repositories.SyncRepository, metrics *metrics.SyncMetrics) *SyncService {
+	return &SyncService{repo: repo, metrics: metrics}
 }
 
 // Plan validates a request before any line is written, so every error it returns is the client's.
@@ -174,8 +189,13 @@ func (s *SyncService) Stream(ctx context.Context, plan SyncPlan, send SyncSender
 		return err
 	}
 
-	if plan.needsReset(time.Now(), resetBefore) {
-		return send(syncLine(plan.protocol.Reset, nowID, dtos.SyncPayloads[plan.protocol.Reset]))
+	now := time.Now()
+	if plan.needsReset(now, resetBefore) {
+		if err := send(syncLine(plan.protocol.Reset, nowID, dtos.SyncPayloads[plan.protocol.Reset])); err != nil {
+			return err
+		}
+		s.metrics.Synced(metrics.SyncKindReset, plan.previousSync(), now)
+		return nil
 	}
 
 	for _, stream := range plan.streams {
@@ -184,7 +204,11 @@ func (s *SyncService) Stream(ctx context.Context, plan SyncPlan, send SyncSender
 		}
 	}
 
-	return send(syncLine(plan.protocol.Complete, nowID, dtos.SyncPayloads[plan.protocol.Complete]))
+	if err := send(syncLine(plan.protocol.Complete, nowID, dtos.SyncPayloads[plan.protocol.Complete])); err != nil {
+		return err
+	}
+	s.metrics.Synced(plan.kind(), plan.previousSync(), now)
+	return nil
 }
 
 func planStreams(types []dtos.SyncRequestType) ([]SyncStream, error) {

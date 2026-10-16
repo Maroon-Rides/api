@@ -6,14 +6,19 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/uptrace/bun"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
+	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/repositories"
 	"github.com/MaroonRides/api/apps/gateway/services"
 	"github.com/MaroonRides/api/internal/db/model"
@@ -33,14 +38,17 @@ var (
 
 // syncClient behaves like the app: it sends every ack it holds and keeps the newest one per entity type.
 type syncClient struct {
-	svc  *services.SyncService
-	acks map[dtos.SyncEntityType]string
+	svc      *services.SyncService
+	acks     map[dtos.SyncEntityType]string
+	registry *prometheus.Registry
 }
 
 func newSyncClient(bundb *bun.DB) *syncClient {
+	registry := prometheus.NewRegistry()
 	return &syncClient{
-		svc:  services.NewSyncService(repositories.NewSyncRepository(bundb)),
-		acks: map[dtos.SyncEntityType]string{},
+		svc:      services.NewSyncService(repositories.NewSyncRepository(bundb), metrics.NewSyncMetrics(registry)),
+		acks:     map[dtos.SyncEntityType]string{},
+		registry: registry,
 	}
 }
 
@@ -378,6 +386,56 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		})
 	})
 
+	Describe("metrics", func() {
+		syncInterval := func() *dto.Histogram {
+			families, err := client.registry.Gather()
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+			index := slices.IndexFunc(families, func(f *dto.MetricFamily) bool { return f.GetName() == "gateway_sync_interval_seconds" })
+			ExpectWithOffset(1, index).NotTo(Equal(-1))
+			return families[index].GetMetric()[0].GetHistogram()
+		}
+
+		BeforeEach(func() {
+			test.CreateNetwork(bundb, "01")
+		})
+
+		It("counts a first sync as full and a later one as incremental", func() {
+			client.sync(allTypes...)
+			client.sync(allTypes...)
+
+			Expect(testutil.GatherAndCompare(client.registry, strings.NewReader(`
+# HELP gateway_syncs_total Sync streams served, by kind.
+# TYPE gateway_syncs_total counter
+gateway_syncs_total{kind="full"} 1
+gateway_syncs_total{kind="incremental"} 1
+`), "gateway_syncs_total")).To(Succeed())
+		})
+
+		It("records the time since the previous complete sync", func() {
+			client.sync(allTypes...)
+			client.sync(allTypes...)
+
+			interval := syncInterval()
+			Expect(interval.GetSampleCount()).To(BeEquivalentTo(1))
+			Expect(interval.GetSampleSum()).To(BeNumerically(">", 0))
+		})
+
+		It("counts a reset and how long the client had been away", func() {
+			client.stream(dtos.SyncRequest{
+				Protocol: dtos.SyncProtocolVersions.V1,
+				Types:    allTypes,
+				Acks:     []string{services.FormatAck(entities.SyncCompleteV1, test.UUIDv7Ago(bundb, sync.ResetAfter+time.Hour))},
+			})
+
+			Expect(testutil.GatherAndCompare(client.registry, strings.NewReader(`
+# HELP gateway_syncs_total Sync streams served, by kind.
+# TYPE gateway_syncs_total counter
+gateway_syncs_total{kind="reset"} 1
+`), "gateway_syncs_total")).To(Succeed())
+			Expect(syncInterval().GetSampleSum()).To(BeNumerically(">", sync.ResetAfter.Seconds()))
+		})
+	})
+
 	When("a new version of a resource ships", func() {
 		const routesV2, routeV2 = dtos.SyncRequestType("RoutesV2"), dtos.SyncEntityType("RouteV2")
 
@@ -441,7 +499,7 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		BeforeEach(func() {
 			test.CreateNetwork(bundb, "01")
 			test.CreateNetwork(bundb, "02")
-			svc = services.NewSyncService(repositories.NewSyncRepository(bundb))
+			svc = services.NewSyncService(repositories.NewSyncRepository(bundb), metrics.NewSyncMetrics(prometheus.NewRegistry()))
 			waitPastNowIDLag()
 		})
 

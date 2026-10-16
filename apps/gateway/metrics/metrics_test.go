@@ -3,13 +3,16 @@ package metrics_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/MaroonRides/api/apps/gateway/metrics"
 )
@@ -69,5 +72,30 @@ gateway_http_requests_total{route="unmatched",status="404"} 1
 		conn.Close()
 
 		Expect(testutil.CollectAndCount(registry, "gateway_http_requests_total")).To(BeZero())
+	})
+})
+
+var _ = Describe("SyncMetrics", Label("unit"), func() {
+	It("records no interval for a client that never completed a sync", func() {
+		registry := prometheus.NewRegistry()
+		m := metrics.NewSyncMetrics(registry)
+		now := time.Now()
+
+		m.Synced(metrics.SyncKindFull, time.Time{}, now)
+		m.Synced(metrics.SyncKindIncremental, now.Add(-time.Hour), now)
+
+		Expect(testutil.GatherAndCompare(registry, strings.NewReader(`
+# HELP gateway_syncs_total Sync streams served, by kind.
+# TYPE gateway_syncs_total counter
+gateway_syncs_total{kind="full"} 1
+gateway_syncs_total{kind="incremental"} 1
+`), "gateway_syncs_total")).To(Succeed())
+		families, err := registry.Gather()
+		Expect(err).NotTo(HaveOccurred())
+		interval := families[slices.IndexFunc(families, func(f *dto.MetricFamily) bool {
+			return f.GetName() == "gateway_sync_interval_seconds"
+		})].GetMetric()[0].GetHistogram()
+		Expect(interval.GetSampleCount()).To(BeEquivalentTo(1))
+		Expect(interval.GetSampleSum()).To(Equal(time.Hour.Seconds()))
 	})
 })
