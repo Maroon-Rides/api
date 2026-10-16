@@ -22,6 +22,7 @@ const subscriptionSyncInterval = model.LiveDataSubscriptionRefreshInterval
 type LiveDataRepository interface {
 	SyncLiveDataSubscriptions(ctx context.Context, clientID uuid.UUID, routeIDs []uuid.UUID) error
 	IsLiveDataAvailable(ctx context.Context, routeID uuid.UUID) (bool, error)
+	GetRouteShortName(ctx context.Context, routeID uuid.UUID) (string, error)
 	GetRouteVehicles(ctx context.Context, routeID uuid.UUID) ([]model.Vehicle, error)
 	GetRouteDepartures(ctx context.Context, routeID uuid.UUID) ([]model.Departure, error)
 }
@@ -38,6 +39,9 @@ type WebsocketService struct {
 	mu           sync.Mutex
 	routes       map[uuid.UUID][]WebsocketClient
 	clientRoutes map[WebsocketClient]uuid.UUID
+	// routeLabels names routes in metrics. A short name is kept for good; the
+	// fallback ID is dropped once the route has no clients, so the lookup is retried.
+	routeLabels map[uuid.UUID]string
 
 	// syncMu keeps subscription writes in order, so the last one stored holds the newest routes.
 	syncMu sync.Mutex
@@ -50,6 +54,7 @@ func NewWebsocketService(lc fx.Lifecycle, repo LiveDataRepository, metrics *metr
 		gatewayID:    uuid.Must(uuid.NewV7()),
 		routes:       map[uuid.UUID][]WebsocketClient{},
 		clientRoutes: map[WebsocketClient]uuid.UUID{},
+		routeLabels:  map[uuid.UUID]string{},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -82,7 +87,7 @@ func (s *WebsocketService) ClientDisconnected(ctx context.Context, clientID uuid
 // A client joining after the route's first fetch gets the current data straight away;
 // one joining before it gets the data from LiveDataAvailable.
 func (s *WebsocketService) Subscribe(ctx context.Context, client WebsocketClient, routeID uuid.UUID) error {
-	joined, routesChanged := s.join(client, routeID)
+	joined, routesChanged := s.join(client, routeID, s.routeLabel(ctx, routeID))
 	if !joined {
 		return nil
 	}
@@ -101,7 +106,7 @@ func (s *WebsocketService) Subscribe(ctx context.Context, client WebsocketClient
 }
 
 // join reports whether the client moved onto routeID, and whether that changed the set of routes with clients.
-func (s *WebsocketService) join(client WebsocketClient, routeID uuid.UUID) (joined, routesChanged bool) {
+func (s *WebsocketService) join(client WebsocketClient, routeID uuid.UUID, label string) (joined, routesChanged bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -110,10 +115,34 @@ func (s *WebsocketService) join(client WebsocketClient, routeID uuid.UUID) (join
 	}
 	leftEmpty := s.remove(client)
 
+	if _, ok := s.routeLabels[routeID]; !ok {
+		s.routeLabels[routeID] = label
+	}
+	label = s.routeLabels[routeID]
+
 	s.routes[routeID] = append(s.routes[routeID], client)
 	s.clientRoutes[client] = routeID
 	s.metrics.SubscribedRoutes.Set(float64(len(s.routes)))
+	s.metrics.RouteClients.WithLabelValues(label).Set(float64(len(s.routes[routeID])))
+	s.metrics.RouteSubscriptions.WithLabelValues(label).Inc()
 	return true, leftEmpty || len(s.routes[routeID]) == 1
+}
+
+// routeLabel falls back to the route ID when the short name cannot be read.
+func (s *WebsocketService) routeLabel(ctx context.Context, routeID uuid.UUID) string {
+	s.mu.Lock()
+	label, ok := s.routeLabels[routeID]
+	s.mu.Unlock()
+	if ok {
+		return label
+	}
+
+	shortName, err := s.repo.GetRouteShortName(ctx, routeID)
+	if err != nil {
+		slog.Warn("Failed to read route short name", "routeId", routeID, "error", err)
+		return routeID.String()
+	}
+	return shortName
 }
 
 func (s *WebsocketService) sendIfAvailable(ctx context.Context, client WebsocketClient, routeID uuid.UUID) {
@@ -268,6 +297,7 @@ func (s *WebsocketService) unsubscribeAll(ctx context.Context) error {
 	clear(s.routes)
 	clear(s.clientRoutes)
 	s.metrics.SubscribedRoutes.Set(0)
+	s.metrics.RouteClients.Reset()
 	s.mu.Unlock()
 
 	return s.syncSubscriptions(ctx)
@@ -301,11 +331,17 @@ func (s *WebsocketService) remove(client WebsocketClient) bool {
 	}
 	delete(s.clientRoutes, client)
 
+	label := s.routeLabels[routeID]
 	s.routes[routeID] = slices.DeleteFunc(s.routes[routeID], func(c WebsocketClient) bool { return c == client })
 	if len(s.routes[routeID]) > 0 {
+		s.metrics.RouteClients.WithLabelValues(label).Set(float64(len(s.routes[routeID])))
 		return false
 	}
 	delete(s.routes, routeID)
 	s.metrics.SubscribedRoutes.Set(float64(len(s.routes)))
+	s.metrics.RouteClients.DeleteLabelValues(label)
+	if label == routeID.String() {
+		delete(s.routeLabels, routeID)
+	}
 	return true
 }

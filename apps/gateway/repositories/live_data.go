@@ -58,6 +58,16 @@ func (r *LiveDataRepository) IsLiveDataAvailable(ctx context.Context, routeID uu
 	return available, err
 }
 
+func (r *LiveDataRepository) GetRouteShortName(ctx context.Context, routeID uuid.UUID) (string, error) {
+	var shortName string
+	err := r.db.NewSelect().
+		Model((*model.Route)(nil)).
+		Column("shortName").
+		Where("? = ?", bun.Ident("id"), routeID).
+		Scan(ctx, &shortName)
+	return shortName, err
+}
+
 func (r *LiveDataRepository) GetRouteVehicles(ctx context.Context, routeID uuid.UUID) ([]model.Vehicle, error) {
 	vehicles := []model.Vehicle{}
 	err := r.db.NewSelect().

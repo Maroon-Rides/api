@@ -3,11 +3,14 @@ package services_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/fx/fxtest"
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
@@ -24,10 +27,21 @@ type fakeSubscriptionRepo struct {
 	departures []model.Departure
 	reads      []uuid.UUID
 	available  bool
+	shortNames map[uuid.UUID]string
+	nameReads  []uuid.UUID
 }
 
 func (r *fakeSubscriptionRepo) IsLiveDataAvailable(_ context.Context, _ uuid.UUID) (bool, error) {
 	return r.available, nil
+}
+
+func (r *fakeSubscriptionRepo) GetRouteShortName(_ context.Context, routeID uuid.UUID) (string, error) {
+	r.nameReads = append(r.nameReads, routeID)
+	shortName, ok := r.shortNames[routeID]
+	if !ok {
+		return "", errors.New("no such route")
+	}
+	return shortName, nil
 }
 
 func (r *fakeSubscriptionRepo) GetRouteVehicles(_ context.Context, routeID uuid.UUID) ([]model.Vehicle, error) {
@@ -73,17 +87,88 @@ func (c *fakeClient) Send(message any) error {
 
 var _ = Describe("WebsocketService", Label("unit"), func() {
 	var (
-		ctx    = context.Background()
-		repo   *fakeSubscriptionRepo
-		svc    *services.WebsocketService
-		routeA uuid.UUID
-		routeB uuid.UUID
+		ctx      = context.Background()
+		repo     *fakeSubscriptionRepo
+		registry *prometheus.Registry
+		svc      *services.WebsocketService
+		routeA   uuid.UUID
+		routeB   uuid.UUID
 	)
 
 	BeforeEach(func() {
-		repo = &fakeSubscriptionRepo{}
-		svc = services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), repo, metrics.NewWebsocketMetrics(prometheus.NewRegistry()))
 		routeA, routeB = newV7(), newV7()
+		repo = &fakeSubscriptionRepo{shortNames: map[uuid.UUID]string{routeA: "01", routeB: "12"}}
+		registry = prometheus.NewRegistry()
+		svc = services.NewWebsocketService(fxtest.NewLifecycle(GinkgoT()), repo, metrics.NewWebsocketMetrics(registry))
+	})
+
+	expectMetrics := func(expected string, names ...string) {
+		ExpectWithOffset(1, testutil.GatherAndCompare(registry, strings.NewReader(expected), names...)).To(Succeed())
+	}
+
+	It("counts clients and subscriptions per route by short name", func() {
+		first, second := &fakeClient{}, &fakeClient{}
+
+		Expect(svc.Subscribe(ctx, first, routeA)).To(Succeed())
+		Expect(svc.Subscribe(ctx, second, routeA)).To(Succeed())
+		Expect(svc.Subscribe(ctx, second, routeA)).To(Succeed())
+		Expect(svc.Subscribe(ctx, second, routeB)).To(Succeed())
+
+		expectMetrics(`
+# HELP gateway_websocket_route_clients Websocket clients subscribed, by route.
+# TYPE gateway_websocket_route_clients gauge
+gateway_websocket_route_clients{route="01"} 1
+gateway_websocket_route_clients{route="12"} 1
+# HELP gateway_websocket_route_subscriptions_total Websocket subscriptions made, by route.
+# TYPE gateway_websocket_route_subscriptions_total counter
+gateway_websocket_route_subscriptions_total{route="01"} 2
+gateway_websocket_route_subscriptions_total{route="12"} 1
+`, "gateway_websocket_route_clients", "gateway_websocket_route_subscriptions_total")
+	})
+
+	It("drops a route's client count once its last client leaves", func() {
+		first, second := &fakeClient{}, &fakeClient{}
+		Expect(svc.Subscribe(ctx, first, routeA)).To(Succeed())
+		Expect(svc.Subscribe(ctx, second, routeB)).To(Succeed())
+
+		svc.ClientDisconnected(ctx, newV7(), first, "closed")
+
+		expectMetrics(`
+# HELP gateway_websocket_route_clients Websocket clients subscribed, by route.
+# TYPE gateway_websocket_route_clients gauge
+gateway_websocket_route_clients{route="12"} 1
+`, "gateway_websocket_route_clients")
+	})
+
+	It("reads a route's short name once", func() {
+		client := &fakeClient{}
+		Expect(svc.Subscribe(ctx, client, routeA)).To(Succeed())
+		svc.Unsubscribe(ctx, client)
+		Expect(svc.Subscribe(ctx, client, routeA)).To(Succeed())
+
+		Expect(repo.nameReads).To(Equal([]uuid.UUID{routeA}))
+	})
+
+	It("labels a route by its ID until its short name can be read", func() {
+		delete(repo.shortNames, routeA)
+		client := &fakeClient{}
+		Expect(svc.Subscribe(ctx, client, routeA)).To(Succeed())
+
+		expectMetrics(fmt.Sprintf(`
+# HELP gateway_websocket_route_clients Websocket clients subscribed, by route.
+# TYPE gateway_websocket_route_clients gauge
+gateway_websocket_route_clients{route=%q} 1
+`, routeA.String()), "gateway_websocket_route_clients")
+
+		svc.Unsubscribe(ctx, client)
+		repo.shortNames[routeA] = "01"
+		Expect(svc.Subscribe(ctx, client, routeA)).To(Succeed())
+
+		expectMetrics(`
+# HELP gateway_websocket_route_clients Websocket clients subscribed, by route.
+# TYPE gateway_websocket_route_clients gauge
+gateway_websocket_route_clients{route="01"} 1
+`, "gateway_websocket_route_clients")
 	})
 
 	It("syncs only when a route gains its first client or loses its last", func() {

@@ -40,4 +40,13 @@ var _ = Describe("LiveDataRepository", Label("medium", "repository"), func() {
 
 		Expect(available()).To(BeTrue())
 	})
+
+	It("reads a route's short name", func() {
+		Expect(repo.GetRouteShortName(ctx, net.Route.ID)).To(Equal(net.Route.ShortName))
+	})
+
+	It("fails to read the short name of an unknown route", func() {
+		_, err := repo.GetRouteShortName(ctx, uuid.New())
+		Expect(err).To(HaveOccurred())
+	})
 })

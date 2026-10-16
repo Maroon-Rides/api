@@ -67,10 +67,12 @@ func (m *HTTPMetrics) Middleware(next http.Handler) http.Handler {
 }
 
 type WebsocketMetrics struct {
-	Clients          prometheus.Gauge
-	SubscribedRoutes prometheus.Gauge
-	MessagesSent     prometheus.Counter
-	SendFailures     prometheus.Counter
+	Clients            prometheus.Gauge
+	SubscribedRoutes   prometheus.Gauge
+	RouteClients       *prometheus.GaugeVec
+	RouteSubscriptions *prometheus.CounterVec
+	MessagesSent       prometheus.Counter
+	SendFailures       prometheus.Counter
 }
 
 func NewWebsocketMetrics(registry prometheus.Registerer) *WebsocketMetrics {
@@ -85,6 +87,16 @@ func NewWebsocketMetrics(registry prometheus.Registerer) *WebsocketMetrics {
 			Name:      "websocket_subscribed_routes",
 			Help:      "Routes with at least one websocket client.",
 		}),
+		RouteClients: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "websocket_route_clients",
+			Help:      "Websocket clients subscribed, by route.",
+		}, []string{labelRoute}),
+		RouteSubscriptions: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "websocket_route_subscriptions_total",
+			Help:      "Websocket subscriptions made, by route.",
+		}, []string{labelRoute}),
 		MessagesSent: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "websocket_messages_sent_total",
@@ -96,7 +108,7 @@ func NewWebsocketMetrics(registry prometheus.Registerer) *WebsocketMetrics {
 			Help:      "Live data messages dropped because the client was closed or too slow.",
 		}),
 	}
-	registry.MustRegister(m.Clients, m.SubscribedRoutes, m.MessagesSent, m.SendFailures)
+	registry.MustRegister(m.Clients, m.SubscribedRoutes, m.RouteClients, m.RouteSubscriptions, m.MessagesSent, m.SendFailures)
 	return m
 }
 
