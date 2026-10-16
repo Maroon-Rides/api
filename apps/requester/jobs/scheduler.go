@@ -26,8 +26,9 @@ type scheduledJob struct {
 }
 
 type Scheduler struct {
-	Scheduler gocron.Scheduler
-	metrics   *metrics.JobMetrics
+	Scheduler   gocron.Scheduler
+	metrics     *metrics.JobMetrics
+	retryPolicy retryPolicy
 
 	mu   sync.Mutex
 	jobs map[string]scheduledJob
@@ -53,14 +54,15 @@ func NewScheduler(location *time.Location, metrics *metrics.JobMetrics) (*Schedu
 	}
 
 	return &Scheduler{
-		Scheduler: s,
-		metrics:   metrics,
-		jobs:      map[string]scheduledJob{},
+		Scheduler:   s,
+		metrics:     metrics,
+		retryPolicy: defaultRetryPolicy,
+		jobs:        map[string]scheduledJob{},
 	}, nil
 }
 
 func (s *Scheduler) task(job Job) gocron.Task {
-	return gocron.NewTask(s.metrics.Instrument(job.Name, job.Task))
+	return gocron.NewTask(withRetries(s.retryPolicy, s.metrics, job.Name, job.Task))
 }
 
 func (s *Scheduler) Register(jobs []Job) error {

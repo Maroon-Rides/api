@@ -20,6 +20,7 @@ require (
 	github.com/prometheus/client_model v0.6.3
 	github.com/rs/cors v1.11.1
 	github.com/samber/lo v1.53.0
+	github.com/sethvargo/go-retry v0.4.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/twpayne/go-polyline v1.1.1
 	github.com/uptrace/bun v1.2.15
@@ -89,7 +90,6 @@ require (
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
-	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect

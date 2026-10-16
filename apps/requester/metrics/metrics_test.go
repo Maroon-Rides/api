@@ -25,7 +25,7 @@ var _ = Describe("JobMetrics", Label("unit"), func() {
 		Expect(m.Instrument("bad", func(context.Context) error { return failure })(context.Background())).To(MatchError(failure))
 
 		Expect(testutil.GatherAndCompare(registry, strings.NewReader(`
-# HELP requester_job_runs_total Scheduled job runs, by job and result.
+# HELP requester_job_runs_total Scheduled job attempts, by job and result. A retried run counts once per attempt.
 # TYPE requester_job_runs_total counter
 requester_job_runs_total{job="bad",result="failure"} 1
 requester_job_runs_total{job="ok",result="success"} 1

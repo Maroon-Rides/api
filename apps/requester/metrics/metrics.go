@@ -32,8 +32,9 @@ var durationBuckets = prometheus.ExponentialBuckets(0.05, 2, 12)
 var Module = fx.Provide(NewJobMetrics, NewUpstreamMetrics)
 
 type JobMetrics struct {
-	runs     *prometheus.CounterVec
-	duration *prometheus.HistogramVec
+	runs             *prometheus.CounterVec
+	duration         *prometheus.HistogramVec
+	retriesExhausted *prometheus.CounterVec
 }
 
 func NewJobMetrics(registry prometheus.Registerer) *JobMetrics {
@@ -41,17 +42,26 @@ func NewJobMetrics(registry prometheus.Registerer) *JobMetrics {
 		runs: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "job_runs_total",
-			Help:      "Scheduled job runs, by job and result.",
+			Help:      "Scheduled job attempts, by job and result. A retried run counts once per attempt.",
 		}, []string{labelJob, labelResult}),
 		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "job_duration_seconds",
-			Help:      "Time a scheduled job run took, by job.",
+			Help:      "Time a scheduled job attempt took, by job.",
 			Buckets:   durationBuckets,
 		}, []string{labelJob}),
+		retriesExhausted: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "job_retries_exhausted_total",
+			Help:      "Scheduled job runs where every attempt failed, by job.",
+		}, []string{labelJob}),
 	}
-	registry.MustRegister(m.runs, m.duration)
+	registry.MustRegister(m.runs, m.duration, m.retriesExhausted)
 	return m
+}
+
+func (m *JobMetrics) RetriesExhausted(name string) {
+	m.retriesExhausted.WithLabelValues(name).Inc()
 }
 
 func (m *JobMetrics) Instrument(name string, task func(context.Context) error) func(context.Context) error {
