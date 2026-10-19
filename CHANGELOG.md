@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Maroon-Rides/api/compare/v1.4.0...v1.5.0) (2026-10-19)
+
+
+### Features
+
+* route planning API ([aa0da41](https://github.com/Maroon-Rides/api/commit/aa0da419b919d2bb68bd1d6ed8355a7d86a14f27))
+
 ## [1.4.0](https://github.com/Maroon-Rides/api/compare/v1.3.0...v1.4.0) (2026-10-16)
 
 
