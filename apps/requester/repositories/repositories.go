@@ -4,8 +4,8 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/MaroonRides/api/apps/requester/metrics"
-	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/MaroonRides/api/apps/requester/repositories/gtfs"
+	"github.com/MaroonRides/api/internal/busapi"
 )
 
 const (

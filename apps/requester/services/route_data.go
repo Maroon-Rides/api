@@ -12,8 +12,8 @@ import (
 	"github.com/twpayne/go-polyline"
 
 	"github.com/MaroonRides/api/apps/requester/repositories"
-	"github.com/MaroonRides/api/apps/requester/repositories/busapi"
 	"github.com/MaroonRides/api/apps/requester/utils"
+	"github.com/MaroonRides/api/internal/busapi"
 	"github.com/MaroonRides/api/internal/db/model"
 )
 
