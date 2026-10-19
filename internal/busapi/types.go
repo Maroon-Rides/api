@@ -254,28 +254,15 @@ type Endpoint struct {
 	PlaceID   *string
 }
 
-type PlanBlock struct {
-	ClassName      string  `json:"className"`
-	IconString     string  `json:"iconString"`
-	LeftPosition   float64 `json:"leftPosition"`
-	RouteShortName string  `json:"routeShortName"`
-	StepType       int     `json:"stepType"`
-	TopPosition    float64 `json:"topPosition"`
-	Width          float64 `json:"width"`
-}
+// StepType is the kind of one instruction in a trip option.
+type StepType int
 
-type ChartLinePosition struct {
-	LeftPosition float64 `json:"leftPosition"`
-	TimeLabel    string  `json:"timeLabel"`
-}
-
-type OptionBlock struct {
-	LeavingIn    string  `json:"leavingIn"`
-	LeftPosition float64 `json:"leftPosition"`
-	TopPosition  float64 `json:"topPosition"`
-	TotalMinute  string  `json:"totalMinute"`
-	Width        float64 `json:"width"`
-}
+const (
+	StepTypeBus     StepType = 0
+	StepTypeWalking StepType = 2
+	StepTypeWaiting StepType = 3
+	StepTypeEnd     StepType = 4
+)
 
 type WalkingInstruction struct {
 	Index       int    `json:"index"`
@@ -283,23 +270,23 @@ type WalkingInstruction struct {
 	Polyline    string `json:"polyline"`
 }
 
+// InstructionStep fields holding text are HTML. Latitude and Longitude are where the step starts.
 type InstructionStep struct {
+	StepType            StepType             `json:"stepType"`
 	ClassName           string               `json:"className"`
-	Duration            string               `json:"duration"`
-	IconClassName       *string              `json:"iconClassName"`
+	StartTime           string               `json:"startTime"`
 	Instruction         string               `json:"instruction"`
+	Duration            *string              `json:"duration"`
+	WalkingInstructions []WalkingInstruction `json:"walkingInstructions"`
+	Polyline            *string              `json:"polyline"`
 	Latitude            float64              `json:"latitude"`
 	Longitude           float64              `json:"longitude"`
-	Polyline            string               `json:"polyline"`
 	RouteShortName      *string              `json:"routeShortName"`
-	StartTime           string               `json:"startTime"`
-	StepType            int                  `json:"stepType"`
-	WalkingInstructions []WalkingInstruction `json:"walkingInstructions"`
 }
 
 type Agency struct {
 	AgencyName string  `json:"agencyName"`
-	AgencyURL  *string `json:"agencyUrl"`
+	URL        *string `json:"url"`
 }
 
 type MapBounds struct {
@@ -309,36 +296,22 @@ type MapBounds struct {
 	SwLongitude float64 `json:"swLongitude"`
 }
 
-type OptionDetail struct {
+// TripOption's StartTime and EndTime are unix seconds. The Total fields are HTML.
+type TripOption struct {
+	StartTime            int64             `json:"startTime"`
+	EndTime              int64             `json:"endTime"`
+	StartTimeText        string            `json:"startTimeText"`
+	EndTimeText          string            `json:"endTimeText"`
+	TotalTime            string            `json:"totalTime"`
+	TotalWalkingTime     string            `json:"totalWalkingTime"`
+	TotalWalkingDistance string            `json:"totalWalkingDistance"`
+	Warnings             []string          `json:"warnings"`
 	Agencies             []Agency          `json:"agencies"`
 	Copyrights           string            `json:"copyrights"`
-	EndTime              int64             `json:"endTime"`
-	EndTimeText          string            `json:"endTimeText"`
-	Instructions         []InstructionStep `json:"instructions"`
 	MapBounds            MapBounds         `json:"mapBounds"`
-	OptionIndex          int               `json:"optionIndex"`
-	StartTime            int64             `json:"startTime"`
-	StartTimeText        string            `json:"startTimeText"`
-	TotalTime            string            `json:"totalTime"`
-	TotalWalkingDistance string            `json:"totalWalkingDistance"`
-	TotalWalkingTime     string            `json:"totalWalkingTime"`
-	Warnings             []string          `json:"warnings"`
-}
-
-type OptionPosition struct {
-	OptionIndex   int     `json:"optionIndex"`
-	OptionSummary string  `json:"optionSummary"`
-	TopPosition   float64 `json:"topPosition"`
+	Instructions         []InstructionStep `json:"instructions"`
 }
 
 type TripPlan struct {
-	Blocks             []PlanBlock         `json:"blocks"`
-	ChartHeight        float64             `json:"chartHeight"`
-	ChartLinePositions []ChartLinePosition `json:"chartLinePositions"`
-	HeaderHeight       float64             `json:"headerHeight"`
-	OptionBlocks       []OptionBlock       `json:"optionBlocks"`
-	OptionDetails      []OptionDetail      `json:"optionDetails"`
-	OptionHeight       float64             `json:"optionHeight"`
-	OptionPositions    []OptionPosition    `json:"optionPositions"`
-	ResultCount        int                 `json:"resultCount"`
+	Options []TripOption `json:"options"`
 }

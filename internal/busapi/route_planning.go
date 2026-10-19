@@ -18,6 +18,12 @@ const (
 // RouteOption selects which trip the planner optimizes for.
 type RouteOption int
 
+const (
+	RouteOptionBest           RouteOption = 0
+	RouteOptionFewerTransfers RouteOption = 1
+	RouteOptionLessWalking    RouteOption = 2
+)
+
 // FindBusStops returns the bus stops matching a search query.
 func (c *Client) FindBusStops(ctx context.Context, query string) ([]FoundStop, error) {
 	var out []FoundStop

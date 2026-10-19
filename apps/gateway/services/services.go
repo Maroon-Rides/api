@@ -3,13 +3,11 @@ package services
 import (
 	"go.uber.org/fx"
 
-	"github.com/MaroonRides/api/apps/gateway/metrics"
 	"github.com/MaroonRides/api/apps/gateway/repositories"
 )
 
 var Module = fx.Provide(
-	func(lc fx.Lifecycle, repo *repositories.LiveDataRepository, metrics *metrics.WebsocketMetrics) *WebsocketService {
-		return NewWebsocketService(lc, repo, metrics)
-	},
+	fx.Annotate(NewWebsocketService, fx.From(new(fx.Lifecycle), new(*repositories.LiveDataRepository))),
 	NewSyncService,
+	fx.Annotate(NewTripPlanService, fx.From(new(*repositories.TripPlanRepository))),
 )

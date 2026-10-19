@@ -121,7 +121,7 @@ var _ = Describe("Client", Label("unit"), func() {
 	})
 
 	It("omits unset trip plan times and sends a null lang", func() {
-		client, captured := newTestClient(`{"resultCount":0}`)
+		client, captured := newTestClient(`{"options":[]}`)
 
 		departAt := time.Unix(1772000000, 0)
 		query := TripPlanQuery{

@@ -788,6 +788,310 @@
 				],
 				"type": "object"
 			},
+			"TripBounds": {
+				"properties": {
+					"neLat": {
+						"format": "double",
+						"type": "number"
+					},
+					"neLon": {
+						"format": "double",
+						"type": "number"
+					},
+					"swLat": {
+						"format": "double",
+						"type": "number"
+					},
+					"swLon": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": [
+					"neLat",
+					"neLon",
+					"swLat",
+					"swLon"
+				],
+				"type": "object"
+			},
+			"TripEndpoint": {
+				"properties": {
+					"lat": {
+						"format": "double",
+						"type": "number"
+					},
+					"lon": {
+						"format": "double",
+						"type": "number"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"lat",
+					"lon",
+					"name"
+				],
+				"type": "object"
+			},
+			"TripItinerary": {
+				"properties": {
+					"arriveAt": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"bounds": {
+						"$ref": "#/components/schemas/TripBounds"
+					},
+					"departAt": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"legs": {
+						"items": {
+							"$ref": "#/components/schemas/TripLeg"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					},
+					"walkingDistanceMeters": {
+						"format": "double",
+						"type": "number"
+					},
+					"walkingSeconds": {
+						"type": "integer"
+					},
+					"warnings": {
+						"items": {
+							"type": "string"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					}
+				},
+				"required": [
+					"arriveAt",
+					"bounds",
+					"departAt",
+					"legs",
+					"walkingDistanceMeters",
+					"walkingSeconds",
+					"warnings"
+				],
+				"type": "object"
+			},
+			"TripLeg": {
+				"properties": {
+					"endAt": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"from": {
+						"$ref": "#/components/schemas/TripPlace"
+					},
+					"path": {
+						"type": "string"
+					},
+					"ride": {
+						"$ref": "#/components/schemas/TripRide"
+					},
+					"startAt": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"to": {
+						"$ref": "#/components/schemas/TripPlace"
+					},
+					"type": {
+						"$ref": "#/components/schemas/TripLegType"
+					},
+					"walk": {
+						"$ref": "#/components/schemas/TripWalk"
+					}
+				},
+				"required": [
+					"endAt",
+					"from",
+					"path",
+					"startAt",
+					"to",
+					"type"
+				],
+				"type": "object"
+			},
+			"TripLegType": {
+				"enum": [
+					"walk",
+					"ride",
+					"wait"
+				],
+				"type": "string"
+			},
+			"TripPlace": {
+				"properties": {
+					"lat": {
+						"format": "double",
+						"type": "number"
+					},
+					"lon": {
+						"format": "double",
+						"type": "number"
+					},
+					"name": {
+						"type": "string"
+					},
+					"stopCode": {
+						"nullable": true,
+						"type": "string"
+					},
+					"stopId": {
+						"format": "uuid",
+						"nullable": true,
+						"type": "string"
+					}
+				},
+				"required": [
+					"lat",
+					"lon",
+					"name",
+					"stopCode",
+					"stopId"
+				],
+				"type": "object"
+			},
+			"TripPlanRequest": {
+				"description": "TripPlanRequest schema",
+				"properties": {
+					"destination": {
+						"$ref": "#/components/schemas/TripEndpoint"
+					},
+					"origin": {
+						"$ref": "#/components/schemas/TripEndpoint"
+					},
+					"preference": {
+						"$ref": "#/components/schemas/TripPreference"
+					},
+					"time": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"timeKind": {
+						"$ref": "#/components/schemas/TripTimeKind"
+					}
+				},
+				"required": [
+					"destination",
+					"origin"
+				],
+				"type": "object"
+			},
+			"TripPlanResponse": {
+				"description": "TripPlanResponse schema",
+				"properties": {
+					"itineraries": {
+						"items": {
+							"$ref": "#/components/schemas/TripItinerary"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					}
+				},
+				"required": [
+					"itineraries"
+				],
+				"type": "object"
+			},
+			"TripPreference": {
+				"enum": [
+					"best",
+					"fewerTransfers",
+					"lessWalking"
+				],
+				"type": "string"
+			},
+			"TripRide": {
+				"properties": {
+					"directionId": {
+						"format": "uuid",
+						"nullable": true,
+						"type": "string"
+					},
+					"headsign": {
+						"type": "string"
+					},
+					"routeId": {
+						"format": "uuid",
+						"nullable": true,
+						"type": "string"
+					},
+					"routeShortName": {
+						"type": "string"
+					},
+					"stopCount": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"directionId",
+					"headsign",
+					"routeId",
+					"routeShortName",
+					"stopCount"
+				],
+				"type": "object"
+			},
+			"TripTimeKind": {
+				"enum": [
+					"departAt",
+					"arriveBy"
+				],
+				"type": "string"
+			},
+			"TripWalk": {
+				"properties": {
+					"distanceMeters": {
+						"format": "double",
+						"type": "number"
+					},
+					"steps": {
+						"items": {
+							"$ref": "#/components/schemas/TripWalkStep"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					}
+				},
+				"required": [
+					"distanceMeters",
+					"steps"
+				],
+				"type": "object"
+			},
+			"TripWalkStep": {
+				"properties": {
+					"instruction": {
+						"type": "string"
+					},
+					"path": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"instruction",
+					"path"
+				],
+				"type": "object"
+			},
 			"unknown-interface": {
 				"description": "unknown-interface schema"
 			}
@@ -867,6 +1171,88 @@
 					}
 				},
 				"summary": "Stream sync changes",
+				"tags": [
+					"api"
+				]
+			}
+		},
+		"/api/trip-plan": {
+			"post": {
+				"description": "#### Controller: \n\n`github.com/MaroonRides/api/apps/gateway/controllers.(*TripPlanController).plan`\n\n---\n\n",
+				"operationId": "planTrip",
+				"parameters": [
+					{
+						"in": "header",
+						"name": "Accept",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/TripPlanRequest"
+							}
+						}
+					},
+					"description": "Request body for dtos.TripPlanRequest",
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/TripPlanResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							}
+						},
+						"description": "Bad Request _(validation or deserialization error)_"
+					},
+					"500": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							}
+						},
+						"description": "Internal Server Error _(panics)_"
+					},
+					"502": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							}
+						},
+						"description": "The upstream trip planner failed"
+					}
+				},
+				"summary": "Plan a trip between two coordinates",
 				"tags": [
 					"api"
 				]
