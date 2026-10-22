@@ -14,15 +14,19 @@ import (
 const (
 	namespace = "gateway"
 
-	labelRoute  = "route"
-	labelStatus = "status"
-	labelKind   = "kind"
+	labelRoute   = "route"
+	labelStatus  = "status"
+	labelKind    = "kind"
+	labelCode    = "code"
+	labelStart   = "start"
+	labelType    = "type"
+	labelOutcome = "outcome"
 
 	// Requests that match no route share one label so stray paths cannot grow the series count.
 	unmatchedRoute = "unmatched"
 )
 
-var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics, NewSyncMetrics)
+var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics, NewSyncMetrics, NewReportMetrics)
 
 type HTTPMetrics struct {
 	requests *prometheus.CounterVec
@@ -139,9 +143,30 @@ var syncIntervalBuckets = []float64{
 	(30 * 24 * time.Hour).Seconds(),
 }
 
+// SyncStart is what a failed sync started from, so failures from an empty database can alert on their own.
+type SyncStart string
+
+const (
+	SyncStartEmpty      SyncStart = "empty"
+	SyncStartCheckpoint SyncStart = "checkpoint"
+)
+
+var syncStarts = []SyncStart{SyncStartEmpty, SyncStartCheckpoint}
+
+type SyncFailureCode string
+
+const (
+	SyncFailureHTTPStatus  SyncFailureCode = "http_status"
+	SyncFailureInvalidLine SyncFailureCode = "invalid_line"
+	SyncFailureApply       SyncFailureCode = "apply"
+)
+
+var syncFailureCodes = []SyncFailureCode{SyncFailureHTTPStatus, SyncFailureInvalidLine, SyncFailureApply}
+
 type SyncMetrics struct {
 	syncs    *prometheus.CounterVec
 	interval prometheus.Histogram
+	failures *prometheus.CounterVec
 }
 
 func NewSyncMetrics(registry prometheus.Registerer) *SyncMetrics {
@@ -157,9 +182,56 @@ func NewSyncMetrics(registry prometheus.Registerer) *SyncMetrics {
 			Help:      "Time since the client's previous completed sync.",
 			Buckets:   syncIntervalBuckets,
 		}),
+		failures: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "sync_failures_total",
+			Help:      "Failed syncs reported by clients, by failure code and what the sync started from.",
+		}, []string{labelCode, labelStart}),
 	}
-	registry.MustRegister(m.syncs, m.interval)
+	registry.MustRegister(m.syncs, m.interval, m.failures)
+
+	// Every failure series starts at zero, so an alert on increase() sees the first failure.
+	for _, code := range syncFailureCodes {
+		for _, start := range syncStarts {
+			m.failures.WithLabelValues(string(code), string(start))
+		}
+	}
 	return m
+}
+
+func (m *SyncMetrics) Failed(code SyncFailureCode, start SyncStart) {
+	m.failures.WithLabelValues(string(code), string(start)).Inc()
+}
+
+type ReportOutcome string
+
+const (
+	ReportRecorded ReportOutcome = "recorded"
+	// The event had an unknown type or a payload that did not decode.
+	ReportDropped ReportOutcome = "dropped"
+)
+
+// Event types the gateway does not know share one label so a client cannot grow the series count.
+const UnknownReportType = "unknown"
+
+type ReportMetrics struct {
+	events *prometheus.CounterVec
+}
+
+func NewReportMetrics(registry prometheus.Registerer) *ReportMetrics {
+	m := &ReportMetrics{
+		events: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "report_events_total",
+			Help:      "Client report events received, by type and outcome.",
+		}, []string{labelType, labelOutcome}),
+	}
+	registry.MustRegister(m.events)
+	return m
+}
+
+func (m *ReportMetrics) Received(eventType string, outcome ReportOutcome) {
+	m.events.WithLabelValues(eventType, string(outcome)).Inc()
 }
 
 // Synced takes the zero time when the client has never completed a sync.

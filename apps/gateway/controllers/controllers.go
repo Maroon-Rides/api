@@ -14,4 +14,5 @@ var Module = fx.Provide(
 	fx.Annotate(NewSyncController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
 	fx.Annotate(NewVersionController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
 	fx.Annotate(NewTripPlanController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
+	fx.Annotate(NewReportController, fx.As(new(Controller)), fx.ResultTags(`group:"controllers"`)),
 )

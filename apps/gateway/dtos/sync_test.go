@@ -41,3 +41,14 @@ var _ = Describe("sync payloads", Label("unit"), func() {
 		Expect(fields).To(HaveKeyWithValue("endsAt", BeNil()))
 	})
 })
+
+var _ = Describe("ReportPayloads", Label("unit"), func() {
+	It("has exactly one payload per event type", func() {
+		eventTypes := dtos.ReportEventType("").EnumValues()
+
+		for _, value := range eventTypes {
+			Expect(dtos.ReportPayloads).To(HaveKey(value.(dtos.ReportEventType)))
+		}
+		Expect(dtos.ReportPayloads).To(HaveLen(len(eventTypes)))
+	})
+})

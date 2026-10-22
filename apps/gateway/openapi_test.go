@@ -27,7 +27,7 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 
 	BeforeEach(func() {
 		server := fuego.NewServer()
-		registerAPI(server, []controllers.Controller{controllers.NewSyncController(nil)})
+		registerAPI(server, []controllers.Controller{controllers.NewSyncController(nil), controllers.NewReportController(nil)})
 
 		raw, err := json.Marshal(server.OpenAPI.Description())
 		Expect(err).NotTo(HaveOccurred())
@@ -93,6 +93,22 @@ var _ = Describe("OpenAPI spec", Label("unit"), func() {
 
 		Expect(content).To(HaveKey(controllers.JSONLinesContentType))
 		Expect(content[controllers.JSONLinesContentType].Schema.Ref).To(Equal(componentPrefix + "SyncStreamLine"))
+	})
+
+	It("describes a report event as a union keyed on type", func() {
+		event := component("ReportEvent")
+		eventTypes := dtos.ReportEventType("").EnumValues()
+
+		Expect(event.OneOf).To(HaveLen(len(eventTypes)))
+		Expect(event.Discriminator.PropertyName).To(Equal("type"))
+		for _, value := range eventTypes {
+			eventType := string(value.(dtos.ReportEventType))
+			variant := component(eventType + "Event")
+			Expect(variant.Properties["type"].Value.Const).To(Equal(eventType))
+			Expect(variant.Required).To(ConsistOf("type", "payload"))
+			Expect(variant.Properties["payload"].Ref).To(Equal(componentPrefix + eventType))
+		}
+		Expect(component("ReportRequest").Properties["events"].Value.Items.Ref).To(Equal(componentPrefix + "ReportEvent"))
 	})
 
 	It("publishes ids as uuid strings and dates as dates", func() {

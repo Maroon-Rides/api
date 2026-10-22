@@ -183,6 +183,55 @@
 				},
 				"type": "object"
 			},
+			"ReportEvent": {
+				"discriminator": {
+					"mapping": {
+						"SyncFailedApplyV1": "#/components/schemas/SyncFailedApplyV1Event",
+						"SyncFailedHTTPStatusV1": "#/components/schemas/SyncFailedHTTPStatusV1Event",
+						"SyncFailedInvalidLineV1": "#/components/schemas/SyncFailedInvalidLineV1Event"
+					},
+					"propertyName": "type"
+				},
+				"oneOf": [
+					{
+						"$ref": "#/components/schemas/SyncFailedHTTPStatusV1Event"
+					},
+					{
+						"$ref": "#/components/schemas/SyncFailedInvalidLineV1Event"
+					},
+					{
+						"$ref": "#/components/schemas/SyncFailedApplyV1Event"
+					}
+				]
+			},
+			"ReportEventType": {
+				"description": "ReportEventType schema",
+				"enum": [
+					"SyncFailedHTTPStatusV1",
+					"SyncFailedInvalidLineV1",
+					"SyncFailedApplyV1"
+				],
+				"title": "ReportEventType",
+				"type": "string"
+			},
+			"ReportRequest": {
+				"description": "ReportRequest schema",
+				"properties": {
+					"events": {
+						"items": {
+							"$ref": "#/components/schemas/ReportEvent"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					}
+				},
+				"required": [
+					"events"
+				],
+				"type": "object"
+			},
 			"RouteDeleteV1Line": {
 				"properties": {
 					"ack": {
@@ -454,6 +503,133 @@
 				],
 				"title": "SyncEntityType",
 				"type": "string"
+			},
+			"SyncFailedApplyV1": {
+				"description": "SyncFailedApplyV1 schema",
+				"properties": {
+					"acks": {
+						"items": {
+							"type": "string"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"protocol": {
+						"$ref": "#/components/schemas/SyncProtocolVersion"
+					}
+				},
+				"required": [
+					"acks",
+					"protocol"
+				],
+				"type": "object"
+			},
+			"SyncFailedApplyV1Event": {
+				"properties": {
+					"payload": {
+						"$ref": "#/components/schemas/SyncFailedApplyV1"
+					},
+					"type": {
+						"const": "SyncFailedApplyV1",
+						"type": "string"
+					}
+				},
+				"required": [
+					"type",
+					"payload"
+				],
+				"type": "object"
+			},
+			"SyncFailedHTTPStatusV1": {
+				"description": "SyncFailedHTTPStatusV1 schema",
+				"properties": {
+					"acks": {
+						"items": {
+							"type": "string"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"protocol": {
+						"$ref": "#/components/schemas/SyncProtocolVersion"
+					},
+					"status": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"acks",
+					"protocol",
+					"status"
+				],
+				"type": "object"
+			},
+			"SyncFailedHTTPStatusV1Event": {
+				"properties": {
+					"payload": {
+						"$ref": "#/components/schemas/SyncFailedHTTPStatusV1"
+					},
+					"type": {
+						"const": "SyncFailedHTTPStatusV1",
+						"type": "string"
+					}
+				},
+				"required": [
+					"type",
+					"payload"
+				],
+				"type": "object"
+			},
+			"SyncFailedInvalidLineV1": {
+				"description": "SyncFailedInvalidLineV1 schema",
+				"properties": {
+					"acks": {
+						"items": {
+							"type": "string"
+						},
+						"type": [
+							"array",
+							"null"
+						]
+					},
+					"message": {
+						"type": "string"
+					},
+					"protocol": {
+						"$ref": "#/components/schemas/SyncProtocolVersion"
+					}
+				},
+				"required": [
+					"acks",
+					"protocol"
+				],
+				"type": "object"
+			},
+			"SyncFailedInvalidLineV1Event": {
+				"properties": {
+					"payload": {
+						"$ref": "#/components/schemas/SyncFailedInvalidLineV1"
+					},
+					"type": {
+						"const": "SyncFailedInvalidLineV1",
+						"type": "string"
+					}
+				},
+				"required": [
+					"type",
+					"payload"
+				],
+				"type": "object"
 			},
 			"SyncProtocolVersion": {
 				"enum": [
@@ -1104,6 +1280,78 @@
 	},
 	"openapi": "3.1.0",
 	"paths": {
+		"/api/reports": {
+			"post": {
+				"description": "#### Controller: \n\n`github.com/MaroonRides/api/apps/gateway/controllers.(*ReportController).report`\n\n#### Middlewares:\n\n- `github.com/MaroonRides/api/apps/gateway/controllers.limitBody`\n\n---\n\nRecords each event. An event with an unknown type or a bad payload is dropped without failing the rest.",
+				"operationId": "report",
+				"parameters": [
+					{
+						"in": "header",
+						"name": "Accept",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ReportRequest"
+							}
+						}
+					},
+					"description": "Request body for dtos.ReportRequest",
+					"required": true
+				},
+				"responses": {
+					"204": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/unknown-interface"
+								}
+							}
+						},
+						"description": "No Content"
+					},
+					"400": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							}
+						},
+						"description": "Bad Request _(validation or deserialization error)_"
+					},
+					"500": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							},
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/HTTPError"
+								}
+							}
+						},
+						"description": "Internal Server Error _(panics)_"
+					}
+				},
+				"summary": "Report client events",
+				"tags": [
+					"api"
+				]
+			}
+		},
 		"/api/sync/stream": {
 			"post": {
 				"description": "#### Controller: \n\n`github.com/MaroonRides/api/apps/gateway/controllers.(*SyncController).stream`\n\n#### Middlewares:\n\n- `github.com/MaroonRides/api/apps/gateway/controllers.gzipped`\n\n---\n\nStreams every change after the given acks as JSON lines. Each line is one SyncStreamLine.",
