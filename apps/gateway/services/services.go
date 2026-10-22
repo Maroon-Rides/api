@@ -10,5 +10,6 @@ var Module = fx.Provide(
 	fx.Annotate(NewWebsocketService, fx.From(new(fx.Lifecycle), new(*repositories.LiveDataRepository))),
 	NewSyncService,
 	NewReportService,
+	NewSessionService,
 	fx.Annotate(NewTripPlanService, fx.From(new(*repositories.TripPlanRepository))),
 )

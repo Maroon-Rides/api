@@ -8,11 +8,11 @@ import (
 )
 
 type VersionController struct {
-	svc *services.SyncService
+	sessions *services.SessionService
 }
 
-func NewVersionController(svc *services.SyncService) *VersionController {
-	return &VersionController{svc: svc}
+func NewVersionController(sessions *services.SessionService) *VersionController {
+	return &VersionController{sessions: sessions}
 }
 
 func (c *VersionController) Register(api *fuego.Server) {
@@ -26,7 +26,9 @@ type SupportedVersionResponse struct {
 	Version string `json:"version"`
 }
 
+// The app checks its version once per launch, so each call is one session.
 func (c *VersionController) supportedVersion(fc fuego.ContextNoBody) (SupportedVersionResponse, error) {
+	c.sessions.Started(fc.Request().UserAgent())
 	return SupportedVersionResponse{
 		Version: config.MinimumSupportedVersion,
 	}, nil

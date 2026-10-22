@@ -26,7 +26,7 @@ const (
 	unmatchedRoute = "unmatched"
 )
 
-var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics, NewSyncMetrics, NewReportMetrics)
+var Module = fx.Provide(NewHTTPMetrics, NewWebsocketMetrics, NewSyncMetrics, NewReportMetrics, NewSessionMetrics)
 
 type HTTPMetrics struct {
 	requests *prometheus.CounterVec
