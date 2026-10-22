@@ -49,6 +49,7 @@ func NewServer(lc fx.Lifecycle, controllers Controllers, httpMetrics *metrics.HT
 		}),
 		fuego.WithSerializer(fuego.SendJSON),
 		fuego.WithEngineOptions(
+			fuego.WithErrorHandler(handleError),
 			fuego.WithRequestContentType("application/json"),
 			fuego.WithResponseContentType("application/json"),
 		),
