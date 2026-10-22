@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/Maroon-Rides/api/compare/v1.6.0...v1.7.0) (2026-10-22)
+
+
+### Features
+
+* track app sessions by platform and version ([6b7817a](https://github.com/Maroon-Rides/api/commit/6b7817a547f086c736da523bb755fb5f2a3869f0))
+
 ## [1.6.0](https://github.com/Maroon-Rides/api/compare/v1.5.0...v1.6.0) (2026-10-22)
 
 
