@@ -10,15 +10,16 @@ const SYNC_URL = `${BASE_URL}/api/sync/stream`;
 const WS_URL = `${BASE_URL.replace(/^http/, "ws")}/api/ws`;
 const SYNC_TIMETABLES = __ENV.SYNC_TIMETABLES !== "false";
 
-// Session counts are read off the production graph, which buckets sessions every 10 minutes.
-const GRAPH_BUCKET = "60m";
-const GRAPH_BUCKET_SECONDS = 60 * 60;
-const PEAK_SUSTAINED_SESSIONS = 1600;
-const PEAK_SPIKE_SESSIONS = 2000;
-const LOAD_MULTIPLIER = 5;
+// Peak app opens (GET / on the auth container) in any 10 minute window, from its nginx logs for 16-19 Oct 2026.
+const SESSION_BUCKET = "10m";
+const SESSION_BUCKET_SECONDS = 10 * 60;
+const PEAK_SESSIONS = 390;
+const LOAD_MULTIPLIER = Number(__ENV.LOAD_MULTIPLIER ?? 2);
+const HOLD_DURATION = "10m";
 
 const FULL_SYNC_SHARE = 0.1;
-const SESSION_SECONDS = 180;
+const SESSION_MIN_SECONDS = 120;
+const SESSION_MAX_SECONDS = 240;
 const SYNC_HEADROOM_SECONDS = 30;
 const INITIAL_DATA_BUDGET_MS = 2000;
 // The gateway drops a client that sends nothing for 60 seconds.
@@ -54,11 +55,10 @@ const ACKED_ENTITY_TYPES = [
 
 const SYNC_PROTOCOL_VERSION = 1;
 
-const SUSTAINED_RATE = PEAK_SUSTAINED_SESSIONS * LOAD_MULTIPLIER;
-const SPIKE_RATE = PEAK_SPIKE_SESSIONS * LOAD_MULTIPLIER;
-const CONCURRENT_SESSIONS_AT_SPIKE = Math.ceil(
-  (SPIKE_RATE / GRAPH_BUCKET_SECONDS) *
-    (SESSION_SECONDS + SYNC_HEADROOM_SECONDS),
+const TARGET_RATE = PEAK_SESSIONS * LOAD_MULTIPLIER;
+const CONCURRENT_SESSIONS_AT_PEAK = Math.ceil(
+  (TARGET_RATE / SESSION_BUCKET_SECONDS) *
+    (SESSION_MAX_SECONDS + SYNC_HEADROOM_SECONDS),
 );
 
 const SYNC_TYPES = [
@@ -140,18 +140,16 @@ export const options: Options = {
   scenarios: {
     sessions: {
       executor: "ramping-arrival-rate",
-      timeUnit: GRAPH_BUCKET,
+      timeUnit: SESSION_BUCKET,
       startRate: 0,
-      preAllocatedVUs: CONCURRENT_SESSIONS_AT_SPIKE,
-      maxVUs: CONCURRENT_SESSIONS_AT_SPIKE * 2,
+      preAllocatedVUs: CONCURRENT_SESSIONS_AT_PEAK,
+      maxVUs: CONCURRENT_SESSIONS_AT_PEAK * 2,
       stages: [
-        { target: SUSTAINED_RATE, duration: "10s" },
-        { target: SUSTAINED_RATE, duration: "6m" },
-        { target: SPIKE_RATE, duration: "30s" },
-        { target: SPIKE_RATE, duration: "3m30s" },
-        { target: 0, duration: "30s" },
+        { target: TARGET_RATE, duration: "10s" },
+        { target: TARGET_RATE, duration: HOLD_DURATION },
+        { target: 0, duration: "10s" },
       ],
-      gracefulStop: `${SESSION_SECONDS + SYNC_HEADROOM_SECONDS}s`,
+      gracefulStop: `${SESSION_MAX_SECONDS + SYNC_HEADROOM_SECONDS}s`,
     },
   },
   thresholds: {
@@ -224,7 +222,8 @@ function sync(
       acks,
     }),
     {
-      headers: { "Content-Type": "application/json" },
+      // The app's HTTP stack asks for gzip, which shrinks a full sync about 8x.
+      headers: { "Content-Type": "application/json", "Accept-Encoding": "gzip" },
       tags: { sync: kind, ...tags },
     },
   );
@@ -306,7 +305,7 @@ function holdLiveSession(routeIds: string[]) {
       sessionEnded = true;
       stopTimers();
       ws.close();
-    }, SESSION_SECONDS * 1000);
+    }, randomBetween(SESSION_MIN_SECONDS, SESSION_MAX_SECONDS) * 1000);
   };
 
   ws.onclose = () => {
