@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/Maroon-Rides/api/compare/v1.5.0...v1.6.0) (2026-10-22)
+
+
+### Features
+
+* client report endpoint with sync failure events and metrics ([35daf33](https://github.com/Maroon-Rides/api/commit/35daf33a6aca4beddd89fa17f7c52be93f4c1767))
+
+
+### Bug Fixes
+
+* hide raw error fields from gateway error responses ([68d5980](https://github.com/Maroon-Rides/api/commit/68d5980e5276e41c70104d42da3cc3b5c989453a))
+
 ## [1.5.0](https://github.com/Maroon-Rides/api/compare/v1.4.0...v1.5.0) (2026-10-19)
 
 
