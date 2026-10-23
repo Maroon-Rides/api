@@ -9,6 +9,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
+
+	"github.com/MaroonRides/api/apps/gateway/config"
 )
 
 const (
@@ -51,10 +53,10 @@ func NewHTTPMetrics(registry prometheus.Registerer) *HTTPMetrics {
 	return m
 }
 
-// Middleware skips websocket upgrades, whose duration is the life of the connection.
+// Middleware skips websocket upgrades, whose duration is the life of the connection, and health probes, which are not app traffic.
 func (m *HTTPMetrics) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if websocket.IsWebSocketUpgrade(r) {
+		if websocket.IsWebSocketUpgrade(r) || r.URL.Path == config.HealthPath {
 			next.ServeHTTP(w, r)
 			return
 		}

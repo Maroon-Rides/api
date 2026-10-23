@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 
+	"github.com/MaroonRides/api/apps/gateway/config"
 	"github.com/MaroonRides/api/apps/gateway/metrics"
 )
 
@@ -61,6 +62,12 @@ gateway_http_requests_total{route="GET /api/routes/{id}",status="418"} 2
 # TYPE gateway_http_requests_total counter
 gateway_http_requests_total{route="unmatched",status="404"} 1
 `), "gateway_http_requests_total")).To(Succeed())
+	})
+
+	It("leaves health probes out", func() {
+		serve(config.HealthPath)
+
+		Expect(testutil.CollectAndCount(registry, "gateway_http_requests_total")).To(BeZero())
 	})
 
 	It("leaves websocket upgrades out", func() {

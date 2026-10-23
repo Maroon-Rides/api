@@ -14,3 +14,5 @@ func Port() string {
 }
 
 const MinimumSupportedVersion = "3.0.0"
+
+const HealthPath = "/healthz"

@@ -63,6 +63,9 @@ func NewServer(lc fx.Lifecycle, controllers Controllers, httpMetrics *metrics.HT
 	server.OpenAPI.Config.PrettyFormatJSON = true
 
 	registerAPI(server, controllers.All)
+	server.Mux.HandleFunc(http.MethodGet+" "+config.HealthPath, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
