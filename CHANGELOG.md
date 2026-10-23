@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/Maroon-Rides/api/compare/v1.7.0...v1.8.0) (2026-10-23)
+
+
+### Features
+
+* add healthz endpoint excluded from request metrics ([9757552](https://github.com/Maroon-Rides/api/commit/97575523e96c9dcb0109dc67ff0d3c9b219ec7a4))
+
 ## [1.7.0](https://github.com/Maroon-Rides/api/compare/v1.6.0...v1.7.0) (2026-10-22)
 
 
