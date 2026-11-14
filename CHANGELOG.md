@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/Maroon-Rides/api/compare/v1.9.0...v1.9.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **sync:** stop resending tombstones that predate a full sync ([#15](https://github.com/Maroon-Rides/api/issues/15)) ([088cd01](https://github.com/Maroon-Rides/api/commit/088cd0101bbf0c0dd29f4ed7489f32ff9749a91b))
+
 ## [1.9.0](https://github.com/Maroon-Rides/api/compare/v1.8.0...v1.9.0) (2026-11-14)
 
 
