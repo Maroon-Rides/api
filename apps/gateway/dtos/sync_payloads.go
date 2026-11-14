@@ -11,7 +11,9 @@ import (
 // A payload never changes once shipped. A new field means a new version of the entity.
 var SyncPayloads = map[SyncEntityType]any{
 	SyncEntityTypes.RouteV1:                SyncRouteV1{},
+	SyncEntityTypes.RouteV2:                SyncRouteV2{},
 	SyncEntityTypes.RouteDeleteV1:          SyncRouteDeleteV1{},
+	SyncEntityTypes.RouteDeleteV2:          SyncRouteDeleteV1{},
 	SyncEntityTypes.DirectionV1:            SyncDirectionV1{},
 	SyncEntityTypes.DirectionDeleteV1:      SyncDirectionDeleteV1{},
 	SyncEntityTypes.StopV1:                 SyncStopV1{},
@@ -49,6 +51,28 @@ func NewSyncRouteV1(r model.Route) SyncRouteV1 {
 		LightColor: r.LightColor,
 		DarkColor:  r.DarkColor,
 		Active:     r.Active,
+	}
+}
+
+type SyncRouteV2 struct {
+	ID         uuid.UUID `json:"id"`
+	ShortName  string    `json:"shortName"`
+	LongName   string    `json:"longName"`
+	LightColor string    `json:"lightColor"`
+	DarkColor  string    `json:"darkColor"`
+	Active     bool      `json:"active"`
+	IsLoop     bool      `json:"isLoop"`
+}
+
+func NewSyncRouteV2(r model.Route) SyncRouteV2 {
+	return SyncRouteV2{
+		ID:         r.ID,
+		ShortName:  r.ShortName,
+		LongName:   r.LongName,
+		LightColor: r.LightColor,
+		DarkColor:  r.DarkColor,
+		Active:     r.Active,
+		IsLoop:     r.IsLoop,
 	}
 }
 

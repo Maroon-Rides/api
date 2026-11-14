@@ -138,9 +138,9 @@ func (r *RouteDataRepository) UpsertRoutes(ctx context.Context, routes []model.R
 	return upsertAll(ctx, r.db, routes,
 		func(route model.Route) string { return route.SourceID },
 		upsertSpec{
-			columns:  []string{"sourceId", "shortName", "longName", "lightColor", "darkColor"},
+			columns:  []string{"sourceId", "shortName", "longName", "lightColor", "darkColor", "isLoop"},
 			conflict: `CONFLICT ("shortName") DO UPDATE`,
-			set:      `"sourceId" = EXCLUDED."sourceId", "longName" = EXCLUDED."longName", "lightColor" = EXCLUDED."lightColor", "darkColor" = EXCLUDED."darkColor", "active" = TRUE, "deactivatedAt" = NULL`,
+			set:      `"sourceId" = EXCLUDED."sourceId", "longName" = EXCLUDED."longName", "lightColor" = EXCLUDED."lightColor", "darkColor" = EXCLUDED."darkColor", "isLoop" = EXCLUDED."isLoop", "active" = TRUE, "deactivatedAt" = NULL`,
 		})
 }
 

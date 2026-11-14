@@ -252,6 +252,26 @@
 				],
 				"type": "object"
 			},
+			"RouteDeleteV2Line": {
+				"properties": {
+					"ack": {
+						"type": "string"
+					},
+					"data": {
+						"$ref": "#/components/schemas/SyncRouteDeleteV1"
+					},
+					"type": {
+						"const": "RouteDeleteV2",
+						"type": "string"
+					}
+				},
+				"required": [
+					"type",
+					"ack",
+					"data"
+				],
+				"type": "object"
+			},
 			"RouteV1Line": {
 				"properties": {
 					"ack": {
@@ -262,6 +282,26 @@
 					},
 					"type": {
 						"const": "RouteV1",
+						"type": "string"
+					}
+				},
+				"required": [
+					"type",
+					"ack",
+					"data"
+				],
+				"type": "object"
+			},
+			"RouteV2Line": {
+				"properties": {
+					"ack": {
+						"type": "string"
+					},
+					"data": {
+						"$ref": "#/components/schemas/SyncRouteV2"
+					},
+					"type": {
+						"const": "RouteV2",
 						"type": "string"
 					}
 				},
@@ -487,7 +527,9 @@
 				"description": "SyncEntityType schema",
 				"enum": [
 					"RouteV1",
+					"RouteV2",
 					"RouteDeleteV1",
+					"RouteDeleteV2",
 					"DirectionV1",
 					"DirectionDeleteV1",
 					"StopV1",
@@ -672,6 +714,7 @@
 			"SyncRequestType": {
 				"enum": [
 					"RoutesV1",
+					"RoutesV2",
 					"DirectionsV1",
 					"StopsV1",
 					"AlertsV1",
@@ -743,6 +786,43 @@
 					"active",
 					"darkColor",
 					"id",
+					"lightColor",
+					"longName",
+					"shortName"
+				],
+				"type": "object"
+			},
+			"SyncRouteV2": {
+				"description": "SyncRouteV2 schema",
+				"properties": {
+					"active": {
+						"type": "boolean"
+					},
+					"darkColor": {
+						"type": "string"
+					},
+					"id": {
+						"format": "uuid",
+						"type": "string"
+					},
+					"isLoop": {
+						"type": "boolean"
+					},
+					"lightColor": {
+						"type": "string"
+					},
+					"longName": {
+						"type": "string"
+					},
+					"shortName": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"active",
+					"darkColor",
+					"id",
+					"isLoop",
 					"lightColor",
 					"longName",
 					"shortName"
@@ -822,7 +902,9 @@
 						"DirectionDeleteV1": "#/components/schemas/DirectionDeleteV1Line",
 						"DirectionV1": "#/components/schemas/DirectionV1Line",
 						"RouteDeleteV1": "#/components/schemas/RouteDeleteV1Line",
+						"RouteDeleteV2": "#/components/schemas/RouteDeleteV2Line",
 						"RouteV1": "#/components/schemas/RouteV1Line",
+						"RouteV2": "#/components/schemas/RouteV2Line",
 						"StopDeleteV1": "#/components/schemas/StopDeleteV1Line",
 						"StopV1": "#/components/schemas/StopV1Line",
 						"SyncCompleteV1": "#/components/schemas/SyncCompleteV1Line",
@@ -837,7 +919,13 @@
 						"$ref": "#/components/schemas/RouteV1Line"
 					},
 					{
+						"$ref": "#/components/schemas/RouteV2Line"
+					},
+					{
 						"$ref": "#/components/schemas/RouteDeleteV1Line"
+					},
+					{
+						"$ref": "#/components/schemas/RouteDeleteV2Line"
 					},
 					{
 						"$ref": "#/components/schemas/DirectionV1Line"

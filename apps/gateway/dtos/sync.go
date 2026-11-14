@@ -6,6 +6,7 @@ type SyncRequestType string
 
 var SyncRequestTypes = struct {
 	RoutesV1          SyncRequestType
+	RoutesV2          SyncRequestType
 	DirectionsV1      SyncRequestType
 	StopsV1           SyncRequestType
 	AlertsV1          SyncRequestType
@@ -13,6 +14,7 @@ var SyncRequestTypes = struct {
 	TimetablesV1      SyncRequestType
 }{
 	RoutesV1:          "RoutesV1",
+	RoutesV2:          "RoutesV2",
 	DirectionsV1:      "DirectionsV1",
 	StopsV1:           "StopsV1",
 	AlertsV1:          "AlertsV1",
@@ -26,7 +28,9 @@ type SyncEntityType string
 
 var SyncEntityTypes = struct {
 	RouteV1                SyncEntityType
+	RouteV2                SyncEntityType
 	RouteDeleteV1          SyncEntityType
+	RouteDeleteV2          SyncEntityType
 	DirectionV1            SyncEntityType
 	DirectionDeleteV1      SyncEntityType
 	StopV1                 SyncEntityType
@@ -42,7 +46,9 @@ var SyncEntityTypes = struct {
 	SyncCompleteV1 SyncEntityType
 }{
 	RouteV1:                "RouteV1",
+	RouteV2:                "RouteV2",
 	RouteDeleteV1:          "RouteDeleteV1",
+	RouteDeleteV2:          "RouteDeleteV2",
 	DirectionV1:            "DirectionV1",
 	DirectionDeleteV1:      "DirectionDeleteV1",
 	StopV1:                 "StopV1",

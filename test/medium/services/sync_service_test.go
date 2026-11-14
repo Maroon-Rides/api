@@ -184,6 +184,30 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 		})
 	})
 
+	Describe("routes v2", func() {
+		var network test.Network
+
+		BeforeEach(func() {
+			network = test.CreateNetwork(bundb, "01")
+			test.Exec(bundb, `UPDATE "route" SET "isLoop" = FALSE WHERE "id" = ?`, network.Route.ID)
+		})
+
+		It("sends whether the route loops", func() {
+			lines := client.sync(requests.RoutesV2)
+
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV2, entities.SyncCompleteV1}))
+			Expect(lines[0].Data.(dtos.SyncRouteV2).ID).To(Equal(network.Route.ID))
+			Expect(lines[0].Data.(dtos.SyncRouteV2).IsLoop).To(BeFalse())
+		})
+
+		It("keeps serving RoutesV1 to older apps", func() {
+			lines := client.sync(requests.RoutesV1)
+
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV1, entities.SyncCompleteV1}))
+			Expect(lines[0].Data).To(BeAssignableToTypeOf(dtos.SyncRouteV1{}))
+		})
+	})
+
 	Describe("a later sync", func() {
 		var first test.Network
 
@@ -437,23 +461,14 @@ gateway_syncs_total{kind="reset"} 1
 	})
 
 	When("a new version of a resource ships", func() {
-		const routesV2, routeV2 = dtos.SyncRequestType("RoutesV2"), dtos.SyncEntityType("RouteV2")
-
-		BeforeEach(func() {
-			original := services.SyncStreams
-			services.SyncStreams = append(slices.Clone(original),
-				services.NewSyncStream(routesV2, routeV2, "RouteDeleteV2", dtos.NewSyncRouteV1, dtos.NewSyncRouteDeleteV1))
-			DeferCleanup(func() { services.SyncStreams = original })
-		})
-
 		It("backfills every row for a client that only holds V1 acks", func() {
 			network := test.CreateNetwork(bundb, "01")
 			client.sync(requests.RoutesV1)
 
-			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{routesV2}, Acks: client.storedAcks()})
+			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.RoutesV2}, Acks: client.storedAcks()})
 
-			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{routeV2, entities.SyncCompleteV1}))
-			Expect(lines[0].Data.(dtos.SyncRouteV1).ID).To(Equal(network.Route.ID))
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV2, entities.SyncCompleteV1}))
+			Expect(lines[0].Data.(dtos.SyncRouteV2).ID).To(Equal(network.Route.ID))
 		})
 
 		It("ignores V1 delete acks and sends no tombstones", func() {
@@ -464,10 +479,10 @@ gateway_syncs_total{kind="reset"} 1
 			client.sync(requests.RoutesV1)
 			Expect(client.acks).To(HaveKey(entities.RouteDeleteV1))
 
-			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{routesV2}, Acks: client.storedAcks()})
+			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.RoutesV2}, Acks: client.storedAcks()})
 
-			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{routeV2, entities.SyncCompleteV1}))
-			Expect(lines[0].Data.(dtos.SyncRouteV1).ID).To(Equal(kept.Route.ID))
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV2, entities.SyncCompleteV1}))
+			Expect(lines[0].Data.(dtos.SyncRouteV2).ID).To(Equal(kept.Route.ID))
 		})
 	})
 

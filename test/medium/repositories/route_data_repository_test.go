@@ -100,3 +100,44 @@ var _ = Describe("RouteDataRepository.SyncDirections", Label("medium", "reposito
 		Expect(storedDirectionIDs()).NotTo(ContainElement(synced.Direction.ID))
 	})
 })
+
+var _ = Describe("RouteDataRepository.UpsertRoutes", Label("medium", "repository"), func() {
+	var (
+		bundb *bun.DB
+		repo  *requester.RouteDataRepository
+		ctx   = context.Background()
+	)
+
+	BeforeEach(func() {
+		bundb = test.Configure()
+		repo = requester.NewRouteDataRepository(bundb)
+	})
+
+	storedIsLoop := func(shortName string) bool {
+		var isLoop bool
+		err := bundb.NewSelect().Model((*model.Route)(nil)).Column("isLoop").Where(`"shortName" = ?`, shortName).Scan(ctx, &isLoop)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		return isLoop
+	}
+
+	gameday := model.Route{SourceID: "gameday", ShortName: "BF", LongName: "Gameday Bonfire", LightColor: "#500000", DarkColor: "#ffffff"}
+
+	It("stores a route that does not loop", func() {
+		_, err := repo.UpsertRoutes(ctx, []model.Route{gameday})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(storedIsLoop("BF")).To(BeFalse())
+	})
+
+	It("updates whether a stored route loops", func() {
+		looping := gameday
+		looping.IsLoop = true
+		_, err := repo.UpsertRoutes(ctx, []model.Route{looping})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = repo.UpsertRoutes(ctx, []model.Route{gameday})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(storedIsLoop("BF")).To(BeFalse())
+	})
+})

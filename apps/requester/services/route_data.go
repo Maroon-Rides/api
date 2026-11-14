@@ -1,9 +1,11 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,6 +18,11 @@ import (
 	"github.com/MaroonRides/api/internal/busapi"
 	"github.com/MaroonRides/api/internal/db/model"
 )
+
+// Game day routes run out to the stadium and back once, so their last stop does not lead into the first.
+const gamedayRoutePrefix = "Gameday"
+
+var gamePhases = []string{"pregame", "postgame"}
 
 type RouteDataService struct {
 	api  *busapi.Client
@@ -137,13 +144,14 @@ func routeRows(routes []busapi.MapRoute) []model.Route {
 			LongName:   route.Name,
 			LightColor: strings.ToLower(lightColor),
 			DarkColor:  strings.ToLower(darkColor),
+			IsLoop:     !strings.HasPrefix(route.Name, gamedayRoutePrefix),
 		})
 	}
 
 	return out
 }
 
-// destination is the headsign and the order a direction is listed in, which
+// destination is the headsign and the order a direction is shown in, which
 // only the base data carries.
 type destination struct {
 	text     string
@@ -154,7 +162,12 @@ func destinations(routes []busapi.MapRoute) map[string]destination {
 	out := map[string]destination{}
 
 	for _, route := range routes {
-		for sequence, direction := range route.DirectionList {
+		listed := slices.Clone(route.DirectionList)
+		slices.SortStableFunc(listed, func(a, b busapi.MapDirectionList) int {
+			return cmp.Compare(gamePhase(a.Destination), gamePhase(b.Destination))
+		})
+
+		for sequence, direction := range listed {
 			out[direction.Direction.Key] = destination{
 				text:     direction.Destination,
 				sequence: sequence,
@@ -163,6 +176,11 @@ func destinations(routes []busapi.MapRoute) map[string]destination {
 	}
 
 	return out
+}
+
+func gamePhase(destination string) int {
+	lower := strings.ToLower(destination)
+	return slices.IndexFunc(gamePhases, func(phase string) bool { return strings.Contains(lower, phase) })
 }
 
 func directionRows(paths []busapi.PatternPathsResponse, routes map[string]model.Route, headsigns map[string]destination) []model.Direction {
