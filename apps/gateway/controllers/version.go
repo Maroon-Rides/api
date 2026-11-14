@@ -5,6 +5,7 @@ import (
 
 	"github.com/MaroonRides/api/apps/gateway/config"
 	"github.com/MaroonRides/api/apps/gateway/services"
+	"github.com/MaroonRides/api/apps/gateway/utils"
 )
 
 type VersionController struct {
@@ -28,7 +29,7 @@ type SupportedVersionResponse struct {
 
 // The app checks its version once per launch, so each call is one session.
 func (c *VersionController) supportedVersion(fc fuego.ContextNoBody) (SupportedVersionResponse, error) {
-	c.sessions.Started(appClient(fc.Request()))
+	c.sessions.Started(utils.AppClient(fc.Request()))
 	return SupportedVersionResponse{
 		Version: config.MinimumSupportedVersion,
 	}, nil

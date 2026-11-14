@@ -1,4 +1,4 @@
-package controllers
+package utils
 
 import (
 	"net/http"
@@ -12,7 +12,7 @@ const (
 	appVersionHeader  = "X-App-Version"
 )
 
-func appClient(r *http.Request) dtos.AppClient {
+func AppClient(r *http.Request) dtos.AppClient {
 	return dtos.AppClient{
 		Platform:  r.Header.Get(appPlatformHeader),
 		Version:   r.Header.Get(appVersionHeader),
