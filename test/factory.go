@@ -30,6 +30,7 @@ func CreateNetwork(bundb *bun.DB, name string) Network {
 			LongName:   "Route " + name,
 			LightColor: "#500000",
 			DarkColor:  "#ffffff",
+			IsLoop:     true,
 			Active:     true,
 		},
 		Alert: model.Alert{

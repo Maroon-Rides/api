@@ -20,6 +20,7 @@ type Route struct {
 	LongName      string     `bun:"longName,notnull"`
 	LightColor    string     `bun:"lightColor,notnull"`
 	DarkColor     string     `bun:"darkColor,notnull"`
+	IsLoop        bool       `bun:"isLoop,notnull"`
 	Active        bool       `bun:"active,notnull,default:true"`
 	DeactivatedAt *time.Time `bun:"deactivatedAt" sync:"nosync"`
 

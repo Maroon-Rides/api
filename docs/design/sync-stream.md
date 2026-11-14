@@ -64,6 +64,7 @@ There are two enums, same as Immich.
 | Request type        | Upsert entity      | Delete entity            | Table             |
 | ------------------- | ------------------ | ------------------------ | ----------------- |
 | `RoutesV1`          | `RouteV1`          | `RouteDeleteV1`          | `route`           |
+| `RoutesV2`          | `RouteV2`          | `RouteDeleteV2`          | `route`           |
 | `DirectionsV1`      | `DirectionV1`      | `DirectionDeleteV1`      | `direction`       |
 | `StopsV1`           | `StopV1`           | `StopDeleteV1`           | `stop`            |
 | `AlertsV1`          | `AlertV1`          | `AlertDeleteV1`          | `alert`           |

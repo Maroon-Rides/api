@@ -33,6 +33,47 @@ var _ = Describe("stopRows", Label("unit"), func() {
 	})
 })
 
+var _ = Describe("routeRows", Label("unit"), func() {
+	It("marks game day routes as not looping", func() {
+		listed := []busapi.MapDirectionList{{LineColor: "#500000"}}
+
+		rows := routeRows([]busapi.MapRoute{
+			{Key: "bonfire", Name: "Bonfire", ShortName: "01", DirectionList: listed},
+			{Key: "gameday", Name: "Gameday Bonfire", ShortName: "BF", DirectionList: listed},
+		})
+
+		Expect(rows).To(HaveLen(2))
+		Expect(rows[0].IsLoop).To(BeTrue())
+		Expect(rows[1].IsLoop).To(BeFalse())
+	})
+})
+
+var _ = Describe("destinations", Label("unit"), func() {
+	It("puts pregame before postgame", func() {
+		got := destinations([]busapi.MapRoute{{DirectionList: []busapi.MapDirectionList{
+			{Direction: busapi.MapDirection{Key: "post"}, Destination: "1 Hour Postgame"},
+			{Direction: busapi.MapDirection{Key: "pre"}, Destination: "3 Hours Pregame"},
+		}}})
+
+		Expect(got).To(Equal(map[string]destination{
+			"pre":  {text: "3 Hours Pregame", sequence: 0},
+			"post": {text: "1 Hour Postgame", sequence: 1},
+		}))
+	})
+
+	It("keeps the upstream order of other directions", func() {
+		got := destinations([]busapi.MapRoute{{DirectionList: []busapi.MapDirectionList{
+			{Direction: busapi.MapDirection{Key: "msc"}, Destination: "MSC"},
+			{Direction: busapi.MapDirection{Key: "commons"}, Destination: "Commons"},
+		}}})
+
+		Expect(got).To(Equal(map[string]destination{
+			"msc":     {text: "MSC", sequence: 0},
+			"commons": {text: "Commons", sequence: 1},
+		}))
+	})
+})
+
 var _ = Describe("directionRows", Label("unit"), func() {
 	It("skips pattern paths for directions missing from base data", func() {
 		route := model.Route{ID: uuid.New(), SourceID: "03"}

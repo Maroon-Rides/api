@@ -89,6 +89,24 @@ var _ = Describe("SyncController", Label("medium", "controller"), func() {
 		Expect(lines[2].Data).To(BeEmpty())
 	})
 
+	It("leaves isLoop out of the RoutesV1 lines older apps read", func() {
+		test.CreateNetwork(bundb, "01")
+		time.Sleep(2 * repositories.NowIDLag)
+
+		res := post(`{"protocol":1,"types":["RoutesV1"],"acks":[]}`)
+
+		Expect(res.Code).To(Equal(http.StatusOK), res.Body.String())
+		lines := readLines(res.Body)
+		Expect(lines[0].Type).To(Equal(dtos.SyncEntityTypes.RouteV1))
+		Expect(lines[0].Data).NotTo(HaveKey("isLoop"))
+	})
+
+	It("rejects both versions of routes in one request", func() {
+		res := post(`{"protocol":1,"types":["RoutesV1","RoutesV2"],"acks":[]}`)
+
+		Expect(res.Code).To(Equal(http.StatusBadRequest), res.Body.String())
+	})
+
 	It("streams the timetables of every route", func() {
 		first := test.CreateNetwork(bundb, "01")
 		second := test.CreateNetwork(bundb, "02")

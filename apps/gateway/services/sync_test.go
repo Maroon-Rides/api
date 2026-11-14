@@ -131,22 +131,19 @@ var _ = Describe("SyncService.Plan", Label("unit"), func() {
 	})
 
 	When("a second version of a resource exists", func() {
-		BeforeEach(func() {
-			original := services.SyncStreams
-			routesV2 := services.NewSyncStream("RoutesV2", "RouteV2", "RouteDeleteV2", dtos.NewSyncRouteV1, dtos.NewSyncRouteDeleteV1)
-			services.SyncStreams = append(slices.Clone(original), routesV2)
-			DeferCleanup(func() { services.SyncStreams = original })
-		})
-
 		It("rejects both versions in one request", func() {
-			_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.RoutesV1, "RoutesV2"}})
+			_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.RoutesV1, requests.RoutesV2}})
 			Expect(err).To(MatchError(services.ErrInvalidSyncRequest))
 		})
 
-		It("accepts either version alone", func() {
-			_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{"RoutesV2"}})
-			Expect(err).NotTo(HaveOccurred())
-		})
+		DescribeTable("accepts either version alone",
+			func(request dtos.SyncRequestType) {
+				_, err := svc.Plan(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{request}})
+				Expect(err).NotTo(HaveOccurred())
+			},
+			Entry("RoutesV1", requests.RoutesV1),
+			Entry("RoutesV2", requests.RoutesV2),
+		)
 	})
 
 	DescribeTable("rejects bad requests",

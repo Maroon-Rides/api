@@ -52,6 +52,7 @@ type SyncStream struct {
 // Parents come before children so a client can apply lines in the order they arrive.
 var SyncStreams = []SyncStream{
 	NewSyncStream(dtos.SyncRequestTypes.RoutesV1, dtos.SyncEntityTypes.RouteV1, dtos.SyncEntityTypes.RouteDeleteV1, dtos.NewSyncRouteV1, dtos.NewSyncRouteDeleteV1),
+	NewSyncStream(dtos.SyncRequestTypes.RoutesV2, dtos.SyncEntityTypes.RouteV2, dtos.SyncEntityTypes.RouteDeleteV2, dtos.NewSyncRouteV2, dtos.NewSyncRouteDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.DirectionsV1, dtos.SyncEntityTypes.DirectionV1, dtos.SyncEntityTypes.DirectionDeleteV1, dtos.NewSyncDirectionV1, dtos.NewSyncDirectionDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.StopsV1, dtos.SyncEntityTypes.StopV1, dtos.SyncEntityTypes.StopDeleteV1, dtos.NewSyncStopV1, dtos.NewSyncStopDeleteV1),
 	NewSyncStream(dtos.SyncRequestTypes.AlertsV1, dtos.SyncEntityTypes.AlertV1, dtos.SyncEntityTypes.AlertDeleteV1, dtos.NewSyncAlertV1, dtos.NewSyncAlertDeleteV1),
