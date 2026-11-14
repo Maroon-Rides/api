@@ -8,7 +8,6 @@ import (
 
 	"github.com/MaroonRides/api/apps/gateway/dtos"
 	"github.com/MaroonRides/api/apps/gateway/services"
-	"github.com/MaroonRides/api/apps/gateway/utils"
 )
 
 const maxReportBodyBytes = 256 << 10
@@ -45,7 +44,7 @@ func (c *ReportController) report(fc fuego.ContextWithBody[dtos.ReportRequest]) 
 		return nil, err
 	}
 
-	err = c.svc.Record(req, utils.AppClient(fc.Request()))
+	err = c.svc.Record(req, fc.Request().UserAgent())
 	if errors.Is(err, services.ErrInvalidReport) {
 		return nil, fuego.BadRequestError{Detail: err.Error(), Err: err}
 	}

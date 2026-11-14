@@ -3,7 +3,6 @@ package services
 import (
 	"regexp"
 
-	"github.com/MaroonRides/api/apps/gateway/dtos"
 	"github.com/MaroonRides/api/apps/gateway/metrics"
 )
 
@@ -33,23 +32,15 @@ func NewSessionService(m *metrics.SessionMetrics) *SessionService {
 }
 
 // Started ignores anything that is not the app, since the kubelet probes the same endpoint.
-func (s *SessionService) Started(client dtos.AppClient) {
-	platform, version, ok := identifyApp(client)
-	if !ok {
+func (s *SessionService) Started(platform, version, userAgent string) {
+	if p, ok := headerPlatforms[platform]; ok && appVersion.MatchString(version) {
+		s.metrics.Started(p, version)
 		return
 	}
-	s.metrics.Started(platform, version)
-}
 
-func identifyApp(client dtos.AppClient) (metrics.AppPlatform, string, bool) {
-	platform, known := headerPlatforms[client.Platform]
-	if known && appVersion.MatchString(client.Version) {
-		return platform, client.Version, true
-	}
-
-	match := appUserAgent.FindStringSubmatch(client.UserAgent)
+	match := appUserAgent.FindStringSubmatch(userAgent)
 	if match == nil {
-		return "", "", false
+		return
 	}
-	return userAgentPlatforms[match[1]], match[2], true
+	s.metrics.Started(userAgentPlatforms[match[1]], match[2])
 }
