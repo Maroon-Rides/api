@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/Maroon-Rides/api/compare/v1.8.0...v1.9.0) (2026-11-14)
+
+
+### Features
+
+* identify app sessions by X-App-Platform and X-App-Version headers ([#12](https://github.com/Maroon-Rides/api/issues/12)) ([2e7520e](https://github.com/Maroon-Rides/api/commit/2e7520efea478e6b35377899850e39f77ac015c0))
+* **sync:** add RoutesV2 with isLoop and order gameday directions pregame first ([#13](https://github.com/Maroon-Rides/api/issues/13)) ([2016660](https://github.com/Maroon-Rides/api/commit/2016660a4a5cb17662c2d6afc6603c2cca88fab0))
+
 ## [1.8.0](https://github.com/Maroon-Rides/api/compare/v1.7.0...v1.8.0) (2026-10-23)
 
 
