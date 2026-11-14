@@ -72,7 +72,7 @@ func NewSyncStream[M, A sync.Row, U, D any](
 		Deletes: deletes,
 		Model:   reflect.TypeFor[M](),
 		run: func(ctx context.Context, repo *repositories.SyncRepository, cursor syncCursor, nowID uuid.UUID, send SyncSender) error {
-			for row, err := range deletesAfter[A](ctx, repo, newestID(cursor[upserts], cursor[deletes]), nowID) {
+			for row, err := range deletesFor[A](ctx, repo, cursor[upserts], cursor[deletes], nowID) {
 				if err != nil {
 					return err
 				}
@@ -93,13 +93,13 @@ func NewSyncStream[M, A sync.Row, U, D any](
 	}
 }
 
-// A client with no ack for a stream holds none of its rows, so it needs no tombstones.
-// Tombstones older than its upsert ack were already left out of the upserts it got.
-func deletesAfter[A sync.Row](ctx context.Context, repo *repositories.SyncRepository, after, nowID uuid.UUID) iter.Seq2[A, error] {
-	if after == uuid.Nil {
-		return func(func(A, error) bool) {}
+// A client with no upsert ack holds none of a stream's rows, so it gets only the newest
+// tombstone. Its ack tells the next sync that every older tombstone predates the rows it got.
+func deletesFor[A sync.Row](ctx context.Context, repo *repositories.SyncRepository, upsertAck, deleteAck, nowID uuid.UUID) iter.Seq2[A, error] {
+	if upsertAck == uuid.Nil {
+		return repositories.NewestDelete[A](ctx, repo, nowID)
 	}
-	return repositories.Deletes[A](ctx, repo, after, nowID)
+	return repositories.Deletes[A](ctx, repo, newestID(upsertAck, deleteAck), nowID)
 }
 
 func newestID(a, b uuid.UUID) uuid.UUID {

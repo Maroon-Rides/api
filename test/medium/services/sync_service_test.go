@@ -275,10 +275,11 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 			kept = test.CreateNetwork(bundb, "02")
 		})
 
-		It("are not sent to a client with no acks", func() {
+		It("are sent to a client with no acks only as the newest, which starts its delete ack", func() {
 			lines := client.sync(requests.RoutesV1)
 
-			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV1, entities.SyncCompleteV1}))
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteDeleteV1, entities.RouteV1, entities.SyncCompleteV1}))
+			Expect(lines[0].Data).To(Equal(dtos.SyncRouteDeleteV1{RouteID: deleted.Route.ID}))
 		})
 
 		It("older than the upsert ack are not sent to a client with no delete ack", func() {
@@ -289,6 +290,14 @@ var _ = Describe("SyncService", Label("medium", "service"), func() {
 
 			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteDeleteV1, entities.SyncCompleteV1}))
 			Expect(lines[0].Data).To(Equal(dtos.SyncRouteDeleteV1{RouteID: kept.Route.ID}))
+		})
+
+		It("newer than every upserted row are not sent again after a full sync", func() {
+			pruned := test.CreateNetwork(bundb, "03")
+			test.Exec(bundb, `DELETE FROM "route" WHERE "id" = ?`, pruned.Route.ID)
+			client.sync(allTypes...)
+
+			Expect(types(client.sync(allTypes...))).To(Equal([]dtos.SyncEntityType{entities.SyncCompleteV1}))
 		})
 	})
 
@@ -471,7 +480,7 @@ gateway_syncs_total{kind="reset"} 1
 			Expect(lines[0].Data.(dtos.SyncRouteV2).ID).To(Equal(network.Route.ID))
 		})
 
-		It("ignores V1 delete acks and sends no tombstones", func() {
+		It("ignores V1 delete acks and sends only the newest tombstone", func() {
 			deleted := test.CreateNetwork(bundb, "01")
 			kept := test.CreateNetwork(bundb, "02")
 			client.sync(requests.RoutesV1)
@@ -481,8 +490,9 @@ gateway_syncs_total{kind="reset"} 1
 
 			lines := client.stream(dtos.SyncRequest{Protocol: dtos.SyncProtocolVersions.V1, Types: []dtos.SyncRequestType{requests.RoutesV2}, Acks: client.storedAcks()})
 
-			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteV2, entities.SyncCompleteV1}))
-			Expect(lines[0].Data.(dtos.SyncRouteV2).ID).To(Equal(kept.Route.ID))
+			Expect(types(lines)).To(Equal([]dtos.SyncEntityType{entities.RouteDeleteV2, entities.RouteV2, entities.SyncCompleteV1}))
+			Expect(lines[0].Data).To(Equal(dtos.SyncRouteDeleteV1{RouteID: deleted.Route.ID}))
+			Expect(lines[1].Data.(dtos.SyncRouteV2).ID).To(Equal(kept.Route.ID))
 		})
 	})
 

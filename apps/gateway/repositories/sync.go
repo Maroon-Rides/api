@@ -60,18 +60,32 @@ func Deletes[A sync.Row](ctx context.Context, r *SyncRepository, after, before u
 	return rowsBetween[A](ctx, r.db, sync.DeleteColumn, after, before)
 }
 
+// NewestDelete yields the newest tombstone of A written before `before`, if there is one.
+func NewestDelete[A sync.Row](ctx context.Context, r *SyncRepository, before uuid.UUID) iter.Seq2[A, error] {
+	return scanRows[A](ctx, r.db, func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.
+			Where("? < ?", bun.Ident(sync.DeleteColumn), before).
+			OrderExpr("? DESC", bun.Ident(sync.DeleteColumn)).
+			Limit(1)
+	})
+}
+
 func rowsBetween[M sync.Row](ctx context.Context, db *bun.DB, column string, after, before uuid.UUID) iter.Seq2[M, error] {
-	return func(yield func(M, error) bool) {
-		var zero M
-		q := db.NewSelect().
-			Model(&zero).
+	return scanRows[M](ctx, db, func(q *bun.SelectQuery) *bun.SelectQuery {
+		q = q.
 			Where("? < ?", bun.Ident(column), before).
 			OrderExpr("? ASC", bun.Ident(column))
 		if after != uuid.Nil {
 			q = q.Where("? > ?", bun.Ident(column), after)
 		}
+		return q
+	})
+}
 
-		rows, err := q.Rows(ctx)
+func scanRows[M sync.Row](ctx context.Context, db *bun.DB, query func(*bun.SelectQuery) *bun.SelectQuery) iter.Seq2[M, error] {
+	return func(yield func(M, error) bool) {
+		var zero M
+		rows, err := query(db.NewSelect().Model(&zero)).Rows(ctx)
 		if err != nil {
 			yield(zero, fmt.Errorf("query %T: %w", zero, err))
 			return
