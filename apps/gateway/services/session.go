@@ -6,10 +6,19 @@ import (
 	"github.com/MaroonRides/api/apps/gateway/metrics"
 )
 
-// The app sets its user agent in capacitor.config.ts, e.g. "Maroon Rides App (iOS) v3.0.0".
+var appVersion = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
+
+// Values of the X-App-Platform header, as Capacitor's getPlatform() returns them.
+var headerPlatforms = map[string]metrics.AppPlatform{
+	"ios":     metrics.AppPlatformIOS,
+	"android": metrics.AppPlatformAndroid,
+	"web":     metrics.AppPlatformWeb,
+}
+
+// Builds from before the app sent its own headers only name themselves here, set in capacitor.config.ts, e.g. "Maroon Rides App (iOS) v3.0.0".
 var appUserAgent = regexp.MustCompile(`Maroon Rides App \((iOS|Android)\) v(\d+\.\d+\.\d+)`)
 
-var appPlatforms = map[string]metrics.AppPlatform{
+var userAgentPlatforms = map[string]metrics.AppPlatform{
 	"iOS":     metrics.AppPlatformIOS,
 	"Android": metrics.AppPlatformAndroid,
 }
@@ -23,10 +32,15 @@ func NewSessionService(m *metrics.SessionMetrics) *SessionService {
 }
 
 // Started ignores anything that is not the app, since the kubelet probes the same endpoint.
-func (s *SessionService) Started(userAgent string) {
+func (s *SessionService) Started(platform, version, userAgent string) {
+	if p, ok := headerPlatforms[platform]; ok && appVersion.MatchString(version) {
+		s.metrics.Started(p, version)
+		return
+	}
+
 	match := appUserAgent.FindStringSubmatch(userAgent)
 	if match == nil {
 		return
 	}
-	s.metrics.Started(appPlatforms[match[1]], match[2])
+	s.metrics.Started(userAgentPlatforms[match[1]], match[2])
 }

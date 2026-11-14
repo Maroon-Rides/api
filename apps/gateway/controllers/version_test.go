@@ -32,13 +32,46 @@ var _ = Describe("VersionController", Label("unit"), func() {
 		handler = server.Mux
 	})
 
-	checkVersion := func(userAgent string) {
+	checkVersionWithHeaders := func(platform, version, userAgent string) {
 		req := httptest.NewRequest(http.MethodGet, "/api/version/supported", nil)
+		req.Header.Set("X-App-Platform", platform)
+		req.Header.Set("X-App-Version", version)
 		req.Header.Set("User-Agent", userAgent)
 		res := httptest.NewRecorder()
 		handler.ServeHTTP(res, req)
 		ExpectWithOffset(1, res.Code).To(Equal(http.StatusOK))
 	}
+
+	checkVersion := func(userAgent string) {
+		checkVersionWithHeaders("", "", userAgent)
+	}
+
+	It("counts a session from the platform and version headers, ahead of the user agent", func() {
+		checkVersionWithHeaders("web", "3.0.2", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+		checkVersionWithHeaders("android", "3.1.0", "Maroon Rides App (iOS) v3.0.0")
+
+		Expect(testutil.GatherAndCompare(registry, strings.NewReader(`
+# HELP gateway_app_sessions_total App launches, counted by the version check each launch makes, by platform and app version.
+# TYPE gateway_app_sessions_total counter
+gateway_app_sessions_total{platform="android",version="3.1.0"} 1
+gateway_app_sessions_total{platform="web",version="3.0.2"} 1
+`), appSessionsMetric)).To(Succeed())
+	})
+
+	DescribeTable("falls back to the user agent when a header is missing or malformed",
+		func(platform, version string) {
+			checkVersionWithHeaders(platform, version, "Maroon Rides App (Android) v3.0.1")
+
+			Expect(testutil.GatherAndCompare(registry, strings.NewReader(`
+# HELP gateway_app_sessions_total App launches, counted by the version check each launch makes, by platform and app version.
+# TYPE gateway_app_sessions_total counter
+gateway_app_sessions_total{platform="android",version="3.0.1"} 1
+`), appSessionsMetric)).To(Succeed())
+		},
+		Entry("no version", "web", ""),
+		Entry("unknown platform", "electron", "3.0.2"),
+		Entry("version with a v prefix", "web", "v3.0.2"),
+	)
 
 	It("counts a session by platform and app version", func() {
 		checkVersion("Maroon Rides App (iOS) v3.0.0")

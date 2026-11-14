@@ -15,15 +15,17 @@ var _ = Describe("CORS", Label("unit"), func() {
 			req := httptest.NewRequest(http.MethodOptions, "/api/sync/stream", nil)
 			req.Header.Set("Origin", origin)
 			req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-			req.Header.Set("Access-Control-Request-Headers", "content-type")
+			req.Header.Set("Access-Control-Request-Headers", "content-type,x-app-platform,x-app-version")
 
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 
 			Expect(res.Header().Get("Access-Control-Allow-Origin")).To(Equal("*"))
+			Expect(res.Header().Get("Access-Control-Allow-Headers")).To(Equal("content-type,x-app-platform,x-app-version"))
 		},
 		Entry("iOS app", "capacitor://localhost"),
 		Entry("Android app", "https://localhost"),
+		Entry("web app", "https://web.maroonrides.app"),
 		Entry("Vite dev server", "http://100.89.139.58:5173"),
 	)
 })
