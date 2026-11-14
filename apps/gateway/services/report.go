@@ -68,27 +68,28 @@ func NewReportService(syncMetrics *metrics.SyncMetrics, reportMetrics *metrics.R
 }
 
 // Record drops a bad event instead of failing the request, so one event a gateway cannot read never loses the rest.
-func (s *ReportService) Record(req dtos.ReportRequest, userAgent string) error {
+func (s *ReportService) Record(req dtos.ReportRequest, client dtos.AppClient) error {
 	if len(req.Events) > maxReportEvents {
 		return fmt.Errorf("%w: %d events is more than %d", ErrInvalidReport, len(req.Events), maxReportEvents)
 	}
+	clientAttr := clientLog(client)
 	for _, event := range req.Events {
-		s.record(event, truncate(userAgent, maxReportedMessage))
+		s.record(event, clientAttr)
 	}
 	return nil
 }
 
-func (s *ReportService) record(event dtos.ReportEvent, userAgent string) {
+func (s *ReportService) record(event dtos.ReportEvent, client slog.Attr) {
 	decode, ok := syncFailureDecoders[event.Type]
 	if !ok {
-		slog.Warn("dropped report event with unknown type", "type", truncate(string(event.Type), maxReportedMessage), "userAgent", userAgent)
+		slog.Warn("dropped report event with unknown type", "type", truncate(string(event.Type), maxReportedMessage), client)
 		s.reportMetrics.Received(metrics.UnknownReportType, metrics.ReportDropped)
 		return
 	}
 
 	failure, err := decode(event.Payload)
 	if err != nil {
-		slog.Warn("dropped report event with bad payload", "type", event.Type, "error", err, "userAgent", userAgent)
+		slog.Warn("dropped report event with bad payload", "type", event.Type, "error", err, client)
 		s.reportMetrics.Received(string(event.Type), metrics.ReportDropped)
 		return
 	}
@@ -107,7 +108,7 @@ func (s *ReportService) record(event dtos.ReportEvent, userAgent string) {
 		"status", failure.status,
 		"message", truncate(failure.message, maxReportedMessage),
 		"acks", failure.acks,
-		"userAgent", userAgent,
+		client,
 	)
 }
 
@@ -116,4 +117,12 @@ func truncate(s string, limit int) string {
 		return s
 	}
 	return s[:limit]
+}
+
+func clientLog(client dtos.AppClient) slog.Attr {
+	return slog.Group("client",
+		"platform", truncate(client.Platform, maxReportedMessage),
+		"version", truncate(client.Version, maxReportedMessage),
+		"userAgent", truncate(client.UserAgent, maxReportedMessage),
+	)
 }

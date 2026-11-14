@@ -44,7 +44,7 @@ func (c *ReportController) report(fc fuego.ContextWithBody[dtos.ReportRequest]) 
 		return nil, err
 	}
 
-	err = c.svc.Record(req, fc.Request().UserAgent())
+	err = c.svc.Record(req, appClient(fc.Request()))
 	if errors.Is(err, services.ErrInvalidReport) {
 		return nil, fuego.BadRequestError{Detail: err.Error(), Err: err}
 	}

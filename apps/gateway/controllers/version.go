@@ -28,7 +28,7 @@ type SupportedVersionResponse struct {
 
 // The app checks its version once per launch, so each call is one session.
 func (c *VersionController) supportedVersion(fc fuego.ContextNoBody) (SupportedVersionResponse, error) {
-	c.sessions.Started(fc.Request().UserAgent())
+	c.sessions.Started(appClient(fc.Request()))
 	return SupportedVersionResponse{
 		Version: config.MinimumSupportedVersion,
 	}, nil

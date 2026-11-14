@@ -10,7 +10,7 @@ const (
 	labelPlatform = "platform"
 	labelVersion  = "version"
 
-	// Versions past this many share one label so a forged user agent cannot grow the series count.
+	// Versions past this many share one label so a forged client cannot grow the series count.
 	maxAppVersions  = 50
 	OtherAppVersion = "other"
 )
@@ -20,6 +20,7 @@ type AppPlatform string
 const (
 	AppPlatformIOS     AppPlatform = "ios"
 	AppPlatformAndroid AppPlatform = "android"
+	AppPlatformWeb     AppPlatform = "web"
 )
 
 type SessionMetrics struct {
