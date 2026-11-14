@@ -103,7 +103,7 @@ The server parses the acks into a cursor keyed by entity type. It never trusts a
    2. upserts: rows with `updateId > ack`, `updateId < nowId`, ordered by `updateId`
 5. Send `SyncCompleteV1` with `nowId` and end the stream.
 
-With no ack for an entity type, its query starts from the beginning. A client with no acks at all gets a full sync. It gets no deletes that matter, because it has nothing to delete.
+With no ack for an entity type, its query starts from the beginning. A client with no acks at all gets a full sync. With no upsert ack for a type, the client has nothing to delete, so it gets only the newest tombstone. That line's ack keeps the next sync from sending tombstones written before this one.
 
 The fixed order follows foreign keys, so parents arrive before children: routes, directions, stops, alerts, alert directions, stop schedules. All versions of a resource sit at the same position. The order of `types` in the request does not matter.
 
